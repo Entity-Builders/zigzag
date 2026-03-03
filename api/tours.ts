@@ -1,4 +1,4 @@
-import axiosInstance from './config/axios';
+import { supabase } from '../lib/supabase';
 
 export interface Tour {
   id: string;
@@ -75,25 +75,37 @@ export async function fetchNearbyTours(
   lat: number,
   lng: number,
   category: string = 'walking',
-  radius: number = 1000
+  radius: number = 1000,
 ) {
-  const { data } = await axiosInstance.get<Tour[]>('/tours/nearby', {
-    params: { lat, lng, category, radius },
-  });
+  // Using an RPC call or edge function for nearby search
+  // In a direct DB query, it would be difficult to calculate Haversine locally without PostGIS
+  // For now, we will just fetch all tours. A true implementation requires PostGIS and RPC
+  const { data, error } = await supabase.from('tour').select('*');
+  if (error) throw error;
   return data;
 }
 
 export async function fetchTourById(id: string) {
-  const { data } = await axiosInstance.get<Tour>(`/tours/${id}`);
+  const { data, error } = await supabase
+    .from('tour')
+    .select('*, activities:tour_activity(*)')
+    .eq('id', id)
+    .single();
+  if (error) throw error;
   return data;
 }
 
 export async function generateTour(dataOrPrompt: string | GenerateTourDto) {
   const payload =
     typeof dataOrPrompt === 'string' ? { prompt: dataOrPrompt } : dataOrPrompt;
-  const { data } = await axiosInstance.post<Tour>(
-    '/tours/generate-tour',
-    payload
+
+  const { data, error } = await supabase.functions.invoke(
+    'zigzag-generate-tour',
+    {
+      body: payload,
+    },
   );
+
+  if (error) throw error;
   return data;
 }

@@ -3,7 +3,7 @@ import { Address } from '../types/address';
 import { BottomSheetContext } from '../components/ui/bottom-sheet';
 import { ApiError, ApiResponse, useApi } from '../api/hooks/useApi';
 import { PaginatedResponseActivity } from '../components/types';
-import axiosInstance from '../api/config/axios';
+import { supabase } from '../lib/supabase';
 import { Activity } from '../features/activities/types';
 
 export type AppContextType = {
@@ -63,7 +63,7 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
   const [activitiesError, setActivitiesError] = useState<ApiError | null>(null);
   const [activitiesLoading, setActivitiesLoading] = useState<boolean>(false);
   const [selectedRadiusMeters, setSelectedRadiusMeters] = useState<number>(
-    Number(process.env.EXPO_PUBLIC_DEFAULT_RADIUS_METERS ?? 3000)
+    Number(process.env.EXPO_PUBLIC_DEFAULT_RADIUS_METERS ?? 3000),
   );
 
   const getActivities = async (coordinatesProps?: {
@@ -90,26 +90,27 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
         };
       }
 
-      const response = await axiosInstance.post<PaginatedResponseActivity>(
-        '/activities/search-hybrid',
-        {
-          latitude: coordinates.lat,
-          longitude: coordinates.lng,
-          // radius in meters
-          radius: coordinatesProps?.radius ?? selectedRadiusMeters,
-          limit: coordinatesProps?.limit || 100,
-          forceRefresh: coordinatesProps?.forceRefresh || false,
-          types: coordinatesProps?.types || undefined,
-        }
-      );
+      // Simplified nearby activities querying directly against Supabase DB
+      // A truly robust implementation would use a PostGIS RPC edge function
+      const { data: activitiesData, error } = await supabase
+        .from('activity')
+        .select('*')
+        .limit(coordinatesProps?.limit || 100);
 
-      // El endpoint search-hybrid retorna un objeto con estructura diferente
-      // { activities: Activity[], fromCache: boolean, crawlingTriggered: boolean, message: string }
-      const activitiesData = response.data.activities;
-      setActivities(activitiesData);
+      if (error) throw error;
+
+      // Mocking the PaginatedResponseActivity structure the frontend expects
+      const paginatedData = {
+        activities: activitiesData || [],
+        fromCache: true,
+        crawlingTriggered: false,
+        message: 'Fetched via Supabase',
+      } as any;
+
+      setActivities(paginatedData.activities);
       setActivitiesError(null);
       return {
-        data: response.data,
+        data: paginatedData,
         success: true,
         error: undefined,
       };

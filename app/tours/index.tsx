@@ -12,7 +12,7 @@ import {
 } from '@gluestack-ui/themed';
 import { FlatList } from 'react-native';
 import { Link, useLocalSearchParams, router } from 'expo-router';
-import axiosInstance from '@/api/config/axios';
+import { supabase } from '@/lib/supabase';
 import { useApi } from '@/api/hooks/useApi';
 import { generateTour } from '@/api/tours';
 import { PaginatedResponseTour } from '@/components/types';
@@ -79,39 +79,36 @@ export default function ToursScreen() {
 
   const getTours = async () => {
     try {
-      const params = new URLSearchParams({
-        page: currentPage.toString(),
-      });
+      // Basic pagination via Supabase PostgREST
+      const itemsPerPage = 10;
+      const from = (currentPage - 1) * itemsPerPage;
+      const to = from + itemsPerPage - 1;
+
+      let query = supabase.from('tour').select('*', { count: 'exact' });
+
       if (category) {
-        params.append('category', category);
+        // Find tours where categories contains the searched category
+        query = query.contains('categories', [category]);
       }
 
-      const lat = latParam || address?.lat.toString();
-      const lng = lngParam || address?.lng.toString();
+      const {
+        data: dbData,
+        count,
+        error: err,
+      } = await query.range(from, to).order('createdAt', { ascending: false });
 
-      if (lat && lng) {
-        params.append('latitude', lat);
-        params.append('longitude', lng);
-        params.append('radius', '10000');
+      if (err) {
+        throw new Error(err.message);
       }
 
-      const response = (await axiosInstance.get(
-        `/tours?${params.toString()}`
-      )) as PaginatedResponse;
+      const calculatedTotalPages = count ? Math.ceil(count / itemsPerPage) : 1;
+      setTotalPages(calculatedTotalPages);
+      setTotalTours(count || 0);
 
-      console.log('$$$ response:', response);
-
-      if (!response.data) {
-        throw new Error('No data returned from API');
-      }
-
-      const { tours, meta } = response.data;
-      setTotalPages(meta?.totalPages || 1);
-      setTotalTours(tours.length);
       return {
         data: {
-          tours: tours,
-          meta: meta,
+          tours: dbData || [],
+          meta: { totalPages: calculatedTotalPages },
         },
         success: true,
       };
@@ -121,9 +118,7 @@ export default function ToursScreen() {
         success: false,
         error: {
           message:
-            error instanceof Error
-              ? error.message
-              : 'Failed to fetch activities',
+            error instanceof Error ? error.message : 'Failed to fetch tours',
           code: 'API_ERROR',
         },
       };

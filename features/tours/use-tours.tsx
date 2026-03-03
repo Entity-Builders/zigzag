@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import axiosInstance from '../../api/config/axios';
+import { supabase } from '../../lib/supabase';
 import { PaginatedResponseTour, Tour } from '../../components/types';
 import { useApi } from '../../api/hooks/useApi';
 
@@ -9,7 +9,7 @@ export const useTours = (
         lat: number;
         lng: number;
       }
-    | undefined
+    | undefined,
 ) => {
   const [currentPage, setCurrentPage] = useState<number>(1);
   const [totalPages, setTotalPages] = useState<number>(1);
@@ -27,22 +27,30 @@ export const useTours = (
 
   const getTours = async () => {
     try {
-      const response = (await axiosInstance.get(
-        `/tours?page=${currentPage}`
-      )) as PaginatedResponseTour;
+      // Basic pagination via Supabase PostgREST
+      const itemsPerPage = 10;
+      const from = (currentPage - 1) * itemsPerPage;
+      const to = from + itemsPerPage - 1;
 
-      if (!response.tours) {
-        throw new Error('No data returned from API');
+      const { data, count, error } = await supabase
+        .from('tour')
+        .select('*', { count: 'exact' })
+        .range(from, to)
+        .order('createdAt', { ascending: false });
+
+      if (error) {
+        throw new Error(error.message);
       }
 
-      const { tours, meta } = response;
-      setTotalPages(meta?.totalPages || 1);
-      setTotalTours(tours.length);
-      setTours(tours);
+      const calculatedTotalPages = count ? Math.ceil(count / itemsPerPage) : 1;
+      setTotalPages(calculatedTotalPages);
+      setTotalTours(count || 0);
+      setTours(data || []);
+
       return {
         data: {
-          tours: tours,
-          meta: meta,
+          tours: data || [],
+          meta: { totalPages: calculatedTotalPages },
         },
         success: true,
       };
@@ -52,9 +60,7 @@ export const useTours = (
         success: false,
         error: {
           message:
-            error instanceof Error
-              ? error.message
-              : 'Failed to fetch activities',
+            error instanceof Error ? error.message : 'Failed to fetch tours',
           code: 'API_ERROR',
         },
       };
@@ -65,7 +71,7 @@ export const useTours = (
     data: toursData,
     error: toursError,
     loading: toursLoading,
-  } = useApi<PaginatedResponse>(getTours);
+  } = useApi<PaginatedResponseTour>(getTours);
 
   useEffect(() => {
     if (toursData) {
