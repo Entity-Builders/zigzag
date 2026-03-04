@@ -11,6 +11,10 @@
     "web": "expo start --web",
     "build:web": "expo export --platform web",
     "build:eas": "npx eas-cli build",
+    "build:dev": "eas build --profile development",
+    "build:preview": "eas build --profile preview --platform ios",
+    "build:prod": "eas build --profile production --platform ios",
+    "build:preview:testflight": "eas build --profile preview-testflight --platform ios --auto-submit",
     "docker:compose": "docker-compose up -d"
   },
   "dependencies": {
