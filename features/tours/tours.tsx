@@ -1,4 +1,4 @@
-import { View, Text } from '@gluestack-ui/themed';
+import { View, Text } from 'react-native';
 import { FlatList } from 'react-native';
 import { useTours } from './use-tours';
 import { useAddress } from '../../context/app';

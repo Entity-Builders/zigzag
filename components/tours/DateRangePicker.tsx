@@ -1,26 +1,12 @@
 import React, { useState } from 'react';
 import {
-  Box,
-  Input,
-  InputField,
-  InputIcon,
-  InputSlot,
+  View,
+  TextInput,
   Pressable,
   Text,
-  VStack,
-  HStack,
-  Button,
-  ButtonText,
-  Icon,
   ScrollView,
-} from '@gluestack-ui/themed';
-import {
-  Actionsheet,
-  ActionsheetBackdrop,
-  ActionsheetContent,
-  ActionsheetDragIndicator,
-  ActionsheetDragIndicatorWrapper,
-} from '@gluestack-ui/themed';
+  Modal,
+} from 'react-native';
 import { Calendar, ChevronLeft, ChevronRight } from 'lucide-react-native';
 
 interface DateRangePickerProps {
@@ -44,7 +30,7 @@ export const DateRangePicker: React.FC<DateRangePickerProps> = ({
   const [tempStartDate, setTempStartDate] = useState(startDate);
   const [tempEndDate, setTempEndDate] = useState(endDate);
   const [currentMonth, setCurrentMonth] = useState(
-    startDate ? new Date(startDate) : new Date()
+    startDate ? new Date(startDate) : new Date(),
   );
   const [selectionMode, setSelectionMode] = useState<'start' | 'end'>('start');
 
@@ -81,7 +67,11 @@ export const DateRangePicker: React.FC<DateRangePickerProps> = ({
     setTempStartDate(startDate);
     setTempEndDate(endDate);
     setCurrentMonth(
-      startDate ? new Date(startDate) : endDate ? new Date(endDate) : new Date()
+      startDate
+        ? new Date(startDate)
+        : endDate
+          ? new Date(endDate)
+          : new Date(),
     );
     setSelectionMode(startDate && endDate ? 'start' : 'start');
     setIsOpen(true);
@@ -158,7 +148,7 @@ export const DateRangePicker: React.FC<DateRangePickerProps> = ({
     const date = new Date(
       currentMonth.getFullYear(),
       currentMonth.getMonth(),
-      day
+      day,
     );
     const dateStr = date.toISOString().split('T')[0];
     return dateStr === tempStartDate || dateStr === tempEndDate;
@@ -169,7 +159,7 @@ export const DateRangePicker: React.FC<DateRangePickerProps> = ({
     const date = new Date(
       currentMonth.getFullYear(),
       currentMonth.getMonth(),
-      day
+      day,
     );
     const start = new Date(tempStartDate);
     const end = new Date(tempEndDate);
@@ -207,50 +197,44 @@ export const DateRangePicker: React.FC<DateRangePickerProps> = ({
     }
 
     return (
-      <VStack space='md' w='$full'>
+      <View className='flex-col w-full gap-4'>
         {/* Month Navigation */}
-        <HStack justifyContent='space-between' alignItems='center' px='$2'>
-          <Pressable onPress={() => navigateMonth('prev')}>
-            <Box p='$2'>
-              <Icon as={ChevronLeft} size='md' color='$textLight600' />
-            </Box>
+        <View className='flex-row justify-between items-center px-2'>
+          <Pressable onPress={() => navigateMonth('prev')} className='p-2'>
+            <ChevronLeft size={24} color='#4B5563' />
           </Pressable>
-          <Text size='lg' fontWeight='$bold' color='$textLight900'>
+          <Text className='text-lg font-bold text-gray-900'>
             {monthNames[currentMonth.getMonth()]} {currentMonth.getFullYear()}
           </Text>
-          <Pressable onPress={() => navigateMonth('next')}>
-            <Box p='$2'>
-              <Icon as={ChevronRight} size='md' color='$textLight600' />
-            </Box>
+          <Pressable onPress={() => navigateMonth('next')} className='p-2'>
+            <ChevronRight size={24} color='#4B5563' />
           </Pressable>
-        </HStack>
+        </View>
 
         {/* Week Days Header */}
-        <HStack space='xs' justifyContent='space-around'>
+        <View className='flex-row justify-around gap-1'>
           {weekDays.map((day) => (
-            <Box key={day} w='$12' alignItems='center'>
-              <Text size='xs' fontWeight='$semibold' color='$textLight600'>
-                {day}
-              </Text>
-            </Box>
+            <View key={day} className='w-12 items-center'>
+              <Text className='text-xs font-semibold text-gray-600'>{day}</Text>
+            </View>
           ))}
-        </HStack>
+        </View>
 
         {/* Calendar Grid */}
-        <VStack space='xs'>
+        <View className='flex-col gap-1'>
           {Array.from({ length: Math.ceil(days.length / 7) }).map(
             (_, weekIndex) => (
-              <HStack key={weekIndex} space='xs' justifyContent='space-around'>
+              <View key={weekIndex} className='flex-row justify-around gap-1'>
                 {Array.from({ length: 7 }).map((_, dayIndex) => {
                   const day = days[weekIndex * 7 + dayIndex];
                   if (day === null || day === undefined) {
-                    return <Box key={dayIndex} w='$12' h='$12' />;
+                    return <View key={dayIndex} className='w-12 h-12' />;
                   }
 
                   const date = new Date(
                     currentMonth.getFullYear(),
                     currentMonth.getMonth(),
-                    day
+                    day,
                   );
                   const dateStr = date.toISOString().split('T')[0];
                   const isSelected = isDateSelected(day);
@@ -265,195 +249,192 @@ export const DateRangePicker: React.FC<DateRangePickerProps> = ({
                       key={dayIndex}
                       onPress={() => handleDateSelect(date)}
                     >
-                      <Box
-                        w='$12'
-                        h='$12'
-                        borderRadius='$md'
-                        alignItems='center'
-                        justifyContent='center'
-                        bg={
+                      <View
+                        className={`w-12 h-12 rounded-md items-center justify-center ${
                           isStart || isEnd
-                            ? '$primary500'
+                            ? 'bg-blue-500'
                             : inRange
-                              ? '$primary50'
-                              : 'transparent'
-                        }
-                        borderWidth={isToday ? '$1' : '$0'}
-                        borderColor='$primary500'
+                              ? 'bg-blue-50'
+                              : 'bg-transparent'
+                        } ${isToday ? 'border border-blue-500' : ''}`}
                       >
                         <Text
-                          size='sm'
-                          fontWeight={isStart || isEnd ? '$bold' : '$normal'}
-                          color={
+                          className={`text-sm ${
                             isStart || isEnd
-                              ? '$white'
+                              ? 'font-bold text-white'
                               : inRange
-                                ? '$primary500'
-                                : '$textLight900'
-                          }
+                                ? 'text-blue-500'
+                                : 'text-gray-900'
+                          }`}
                         >
                           {day}
                         </Text>
-                      </Box>
+                      </View>
                     </Pressable>
                   );
                 })}
-              </HStack>
-            )
+              </View>
+            ),
           )}
-        </VStack>
-      </VStack>
+        </View>
+      </View>
     );
   };
 
   return (
     <>
       <Pressable onPress={handleOpen}>
-        <Input variant='outline' size='lg' isReadOnly>
-          <InputSlot pl='$3'>
-            <InputIcon as={Calendar} size='md' color='$textLight600' />
-          </InputSlot>
-          <InputField
+        <View className='flex-row items-center border border-gray-300 rounded-md bg-white h-12 px-3'>
+          <Calendar size={20} color='#4B5563' className='mr-2' />
+          <TextInput
             placeholder='Seleccionar fechas'
             value={formatDateRange()}
             editable={false}
+            className='flex-1 text-gray-900 text-base py-0 pointer-events-none'
           />
-        </Input>
+        </View>
       </Pressable>
 
-      <Actionsheet isOpen={isOpen} onClose={handleClose} snapPoints={[85]}>
-        <ActionsheetBackdrop />
-        <ActionsheetContent maxHeight='$full'>
-          <ActionsheetDragIndicatorWrapper>
-            <ActionsheetDragIndicator />
-          </ActionsheetDragIndicatorWrapper>
-          <Box w='$full' h='$full'>
+      <Modal
+        visible={isOpen}
+        animationType='slide'
+        transparent={true}
+        onRequestClose={handleClose}
+      >
+        <View className='flex-1 justify-end bg-black/40'>
+          <View className='bg-white rounded-t-3xl w-full max-h-[85%]'>
+            <View className='w-12 h-1.5 bg-gray-300 rounded-full self-center mt-3 mb-2' />
             <ScrollView
-              w='$full'
+              className='w-full'
               contentContainerStyle={{ paddingBottom: 40 }}
               showsVerticalScrollIndicator={false}
             >
-              <VStack space='lg' p='$4' w='$full'>
-                <Text size='lg' fontWeight='$bold' color='$textLight900'>
+              <View className='flex-col p-4 w-full gap-5'>
+                <Text className='text-lg font-bold text-gray-900 text-center'>
                   Seleccionar Fechas
                 </Text>
 
                 {/* Mode Selection Buttons */}
-                <HStack space='md' mb='$2'>
-                  <Button
-                    variant={selectionMode === 'start' ? 'solid' : 'outline'}
-                    flex={1}
-                    onPress={() => setSelectionMode('start')}
-                    borderColor={
+                <View className='flex-row gap-4 mb-2'>
+                  <Pressable
+                    className={`flex-1 rounded-md py-3 items-center ${
                       selectionMode === 'start'
-                        ? '$primary500'
-                        : '$textLight300'
-                    }
+                        ? 'bg-blue-500'
+                        : 'bg-white border border-gray-300'
+                    }`}
+                    onPress={() => setSelectionMode('start')}
                   >
-                    <ButtonText
-                      color={
-                        selectionMode === 'start' ? '$white' : '$textLight600'
+                    <Text
+                      className={
+                        selectionMode === 'start'
+                          ? 'text-white font-medium'
+                          : 'text-gray-600'
                       }
                     >
                       Fecha Inicio
-                    </ButtonText>
-                  </Button>
-                  <Button
-                    variant={selectionMode === 'end' ? 'solid' : 'outline'}
-                    flex={1}
+                    </Text>
+                  </Pressable>
+                  <Pressable
+                    className={`flex-1 rounded-md py-3 items-center ${
+                      selectionMode === 'end'
+                        ? 'bg-blue-500'
+                        : 'bg-white border border-gray-300'
+                    } ${!tempStartDate ? 'opacity-50' : ''}`}
                     onPress={() => setSelectionMode('end')}
-                    borderColor={
-                      selectionMode === 'end' ? '$primary500' : '$textLight300'
-                    }
-                    isDisabled={!tempStartDate}
+                    disabled={!tempStartDate}
                   >
-                    <ButtonText
-                      color={
-                        selectionMode === 'end' ? '$white' : '$textLight600'
+                    <Text
+                      className={
+                        selectionMode === 'end'
+                          ? 'text-white font-medium'
+                          : 'text-gray-600'
                       }
                     >
                       Fecha Fin
-                    </ButtonText>
-                  </Button>
-                </HStack>
+                    </Text>
+                  </Pressable>
+                </View>
 
                 {/* Calendar */}
                 {renderCalendar()}
 
                 {/* Selection Status */}
-                <HStack space='md' justifyContent='space-around'>
-                  <VStack alignItems='center' flex={1}>
-                    <Text size='xs' color='$textLight600' mb='$1'>
+                <View className='flex-row justify-around mt-4'>
+                  <View className='items-center flex-1'>
+                    <Text className='text-xs text-gray-600 mb-1'>
                       Fecha Inicio
                     </Text>
                     <Text
-                      size='sm'
-                      fontWeight='$semibold'
-                      color={tempStartDate ? '$primary500' : '$textLight400'}
+                      className={`text-sm font-semibold ${
+                        tempStartDate ? 'text-blue-500' : 'text-gray-400'
+                      }`}
                     >
                       {tempStartDate
                         ? formatDate(tempStartDate)
                         : 'No seleccionada'}
                     </Text>
-                  </VStack>
-                  <VStack alignItems='center' flex={1}>
-                    <Text size='xs' color='$textLight600' mb='$1'>
+                  </View>
+                  <View className='items-center flex-1'>
+                    <Text className='text-xs text-gray-600 mb-1'>
                       Fecha Fin
                     </Text>
                     <Text
-                      size='sm'
-                      fontWeight='$semibold'
-                      color={tempEndDate ? '$primary500' : '$textLight400'}
+                      className={`text-sm font-semibold ${
+                        tempEndDate ? 'text-blue-500' : 'text-gray-400'
+                      }`}
                     >
                       {tempEndDate
                         ? formatDate(tempEndDate)
                         : 'No seleccionada'}
                     </Text>
-                  </VStack>
-                  <VStack alignItems='center' flex={1}>
-                    <Text size='xs' color='$textLight600' mb='$1'>
-                      Duración
-                    </Text>
+                  </View>
+                  <View className='items-center flex-1'>
+                    <Text className='text-xs text-gray-600 mb-1'>Duración</Text>
                     <Text
-                      size='sm'
-                      fontWeight='$semibold'
-                      color={
+                      className={`text-sm font-semibold ${
                         tempStartDate && tempEndDate
-                          ? '$primary500'
-                          : '$textLight400'
-                      }
+                          ? 'text-blue-500'
+                          : 'text-gray-400'
+                      }`}
                     >
                       {tempStartDate && tempEndDate
                         ? `${
                             Math.ceil(
                               (new Date(tempEndDate).getTime() -
                                 new Date(tempStartDate).getTime()) /
-                                (1000 * 60 * 60 * 24)
+                                (1000 * 60 * 60 * 24),
                             ) + 1
                           } Días`
                         : '-'}
                     </Text>
-                  </VStack>
-                </HStack>
+                  </View>
+                </View>
 
                 {/* Action Buttons */}
-                <HStack space='md' mt='$2' mb='$8'>
-                  <Button variant='outline' flex={1} onPress={handleClear}>
-                    <ButtonText color='$error500'>Limpiar</ButtonText>
-                  </Button>
-                  <Button
-                    flex={1}
-                    onPress={handleConfirm}
-                    isDisabled={!tempStartDate || !tempEndDate}
+                <View className='flex-row gap-4 mt-8 mb-4'>
+                  <Pressable
+                    className='flex-1 py-4 border border-red-500 rounded-md items-center'
+                    onPress={handleClear}
                   >
-                    <ButtonText>Confirmar</ButtonText>
-                  </Button>
-                </HStack>
-              </VStack>
+                    <Text className='text-red-500 font-medium'>Limpiar</Text>
+                  </Pressable>
+                  <Pressable
+                    className={`flex-1 py-4 rounded-md items-center ${
+                      !tempStartDate || !tempEndDate
+                        ? 'bg-blue-300'
+                        : 'bg-blue-600'
+                    }`}
+                    onPress={handleConfirm}
+                    disabled={!tempStartDate || !tempEndDate}
+                  >
+                    <Text className='text-white font-medium'>Confirmar</Text>
+                  </Pressable>
+                </View>
+              </View>
             </ScrollView>
-          </Box>
-        </ActionsheetContent>
-      </Actionsheet>
+          </View>
+        </View>
+      </Modal>
     </>
   );
 };

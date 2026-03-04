@@ -1,31 +1,15 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useContext } from 'react';
 import {
-  Box,
-  VStack,
-  HStack,
-  Heading,
+  View,
   Text,
-  Button,
-  ButtonText,
-  Input,
-  InputField,
-  InputIcon,
-  InputSlot,
+  TextInput,
   ScrollView,
   Pressable,
-  Icon,
-  Slider,
-  SliderTrack,
-  SliderFilledTrack,
-  SliderThumb,
-  Textarea,
-  TextareaInput,
   Switch,
-} from '@gluestack-ui/themed';
+  Platform,
+} from 'react-native';
 import {
   ArrowLeft,
-  Search,
-  Calendar,
   MapPin,
   User,
   Users,
@@ -37,12 +21,10 @@ import {
   Bus,
   Sparkles,
 } from 'lucide-react-native';
-import { Platform } from 'react-native';
 import { GenerateTourDto } from '@/api/tours';
 import { DestinationInput } from './DestinationInput';
 import { DateRangePicker } from './DateRangePicker';
 import { Map } from '@/features/map';
-import { useContext, useEffect } from 'react';
 import { AppContext } from '@/context/app';
 import * as ExpoLocation from 'expo-location';
 
@@ -90,6 +72,23 @@ export const TourWizardForm: React.FC<TourWizardFormProps> = ({
     { lat: number; lng: number } | undefined
   >(initialLocation);
 
+  const [startDate, setStartDate] = useState<string>('');
+  const [endDate, setEndDate] = useState<string>('');
+  const [days, setDays] = useState<number>(3);
+  const [useCurrentLocation, setUseCurrentLocation] = useState(true);
+  const [budgetLevel, setBudgetLevel] = useState<'low' | 'medium' | 'high'>(
+    'low',
+  );
+  const [transportationMode, setTransportationMode] = useState<string[]>([
+    'walking',
+  ]);
+  const [travelPace, setTravelPace] = useState<number>(50); // 0-100, 0=relaxed, 100=fast
+  const [groupType, setGroupType] = useState<
+    'solo' | 'couple' | 'family' | 'friends'
+  >('solo');
+  const [selectedInterests, setSelectedInterests] = useState<string[]>([]);
+  const [specialNotes, setSpecialNotes] = useState<string>('');
+
   // Get current location on mount if useCurrentLocation is enabled
   useEffect(() => {
     const getInitialLocation = async () => {
@@ -121,7 +120,6 @@ export const TourWizardForm: React.FC<TourWizardFormProps> = ({
     };
 
     getInitialLocation();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []); // Only run on mount
 
   // Update map center when destination coordinates change
@@ -132,34 +130,18 @@ export const TourWizardForm: React.FC<TourWizardFormProps> = ({
       setCenter(initialLocation);
     }
   }, [destinationCoords, initialLocation, setCenter]);
-  const [startDate, setStartDate] = useState<string>('');
-  const [endDate, setEndDate] = useState<string>('');
-  const [days, setDays] = useState<number>(3);
-  const [useCurrentLocation, setUseCurrentLocation] = useState(true);
-  const [budgetLevel, setBudgetLevel] = useState<'low' | 'medium' | 'high'>(
-    'low'
-  );
-  const [transportationMode, setTransportationMode] = useState<string[]>([
-    'walking',
-  ]);
-  const [travelPace, setTravelPace] = useState<number>(50); // 0-100, 0=relaxed, 100=fast
-  const [groupType, setGroupType] = useState<
-    'solo' | 'couple' | 'family' | 'friends'
-  >('solo');
-  const [selectedInterests, setSelectedInterests] = useState<string[]>([]);
-  const [specialNotes, setSpecialNotes] = useState<string>('');
 
   const toggleInterest = (interest: string) => {
     setSelectedInterests((prev) =>
       prev.includes(interest)
         ? prev.filter((i) => i !== interest)
-        : [...prev, interest]
+        : [...prev, interest],
     );
   };
 
   const toggleTransportationMode = (mode: string) => {
     setTransportationMode((prev) =>
-      prev.includes(mode) ? prev.filter((m) => m !== mode) : [...prev, mode]
+      prev.includes(mode) ? prev.filter((m) => m !== mode) : [...prev, mode],
     );
   };
 
@@ -212,34 +194,6 @@ export const TourWizardForm: React.FC<TourWizardFormProps> = ({
     return 'fast';
   };
 
-  const formatDateRange = () => {
-    if (!startDate && !endDate) return '';
-    const start = startDate ? new Date(startDate) : null;
-    const end = endDate ? new Date(endDate) : null;
-
-    if (start && end) {
-      const daysDiff =
-        Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)) +
-        1;
-      const startStr = start.toLocaleDateString('es-ES', {
-        day: 'numeric',
-        month: 'short',
-      });
-      const endStr = end.toLocaleDateString('es-ES', {
-        day: 'numeric',
-        month: 'short',
-      });
-      return `${startStr} - ${endStr} (${daysDiff} Días)`;
-    } else if (start) {
-      const startStr = start.toLocaleDateString('es-ES', {
-        day: 'numeric',
-        month: 'short',
-      });
-      return `${startStr} - ${startStr} (1 Día)`;
-    }
-    return '';
-  };
-
   const handleSubmit = () => {
     // Build startDates array if dates are provided
     const startDates: string[] = [];
@@ -262,7 +216,7 @@ export const TourWizardForm: React.FC<TourWizardFormProps> = ({
       destinationLongitude: destinationCoords?.lng,
       days,
       budgetLevel,
-      transportationMode: transportationMode as any, // Cast to avoid TS error as we updated DTO but FE validation might be strict or I missed something. Actually I updated DTO.
+      transportationMode: transportationMode as any,
       travelPace: getPaceValue(),
       groupType,
       interests:
@@ -300,36 +254,25 @@ export const TourWizardForm: React.FC<TourWizardFormProps> = ({
       : [];
 
     return (
-      <VStack space='lg' flex={1}>
+      <View className='flex-col gap-6 flex-1'>
         {/* Map */}
-        <Box
-          h='$48'
-          borderRadius='$lg'
-          overflow='hidden'
-          borderWidth='$1'
-          borderColor='$backgroundLight300'
-        >
+        <View className='h-48 rounded-lg overflow-hidden border border-gray-200'>
           {mapCoords ? (
-            <Box h='$full' w='$full'>
+            <View className='h-full w-full'>
               <Map markers={marker} />
-            </Box>
+            </View>
           ) : (
-            <Box
-              bg='$backgroundLight200'
-              h='$full'
-              justifyContent='center'
-              alignItems='center'
-            >
-              <Icon as={MapPin} size='xl' color='$primary500' />
-              <Text mt='$2' color='$textLight600' size='sm'>
+            <View className='bg-gray-100 h-full justify-center items-center'>
+              <MapPin size={40} color='#3B82F6' />
+              <Text className='mt-2 text-gray-500 text-sm'>
                 Selecciona un destino para ver el mapa
               </Text>
-            </Box>
+            </View>
           )}
-        </Box>
+        </View>
 
         {/* Search Destination */}
-        <Box position='relative' zIndex={1}>
+        <View className='relative z-[1000]'>
           <DestinationInput
             value={destination}
             onDestinationChange={(dest, coords) => {
@@ -339,10 +282,10 @@ export const TourWizardForm: React.FC<TourWizardFormProps> = ({
               }
             }}
           />
-        </Box>
+        </View>
 
         {/* Date Range */}
-        <Box position='relative' zIndex={0}>
+        <View className='relative z-0'>
           <DateRangePicker
             startDate={startDate}
             endDate={endDate}
@@ -351,69 +294,60 @@ export const TourWizardForm: React.FC<TourWizardFormProps> = ({
             onEndDateChange={setEndDate}
             onDaysChange={setDays}
           />
-        </Box>
+        </View>
 
         {/* Use Current Location Toggle */}
-        <HStack justifyContent='space-between' alignItems='center'>
-          <Text size='md' color='$textLight900'>
+        <View className='flex-row justify-between items-center -z-10 relative'>
+          <Text className='text-base text-gray-900'>
             Usar mi ubicación actual
           </Text>
           <Switch
             value={useCurrentLocation}
-            onToggle={handleLocationToggle}
+            onValueChange={handleLocationToggle}
             trackColor={{ false: '#E5E7EB', true: '#3B82F6' }}
             thumbColor='#FFFFFF'
           />
-        </HStack>
-      </VStack>
+        </View>
+      </View>
     );
   };
 
   const renderStep2 = () => (
-    <VStack space='xl' flex={1}>
+    <View className='flex-col gap-6 flex-1'>
       {/* Budget */}
-      <VStack space='md'>
-        <Text size='lg' fontWeight='$semibold' color='$textLight900'>
-          Presupuesto
-        </Text>
-        <HStack space='md'>
+      <View className='flex-col gap-3'>
+        <Text className='text-lg font-semibold text-gray-900'>Presupuesto</Text>
+        <View className='flex-row gap-3'>
           {(['low', 'medium', 'high'] as const).map((level) => (
             <Pressable
               key={level}
-              flex={1}
+              className='flex-1'
               onPress={() => setBudgetLevel(level)}
             >
-              <Box
-                bg={budgetLevel === level ? '$primary500' : '$white'}
-                borderWidth='$1'
-                borderColor={
-                  budgetLevel === level ? '$primary500' : '$backgroundLight300'
-                }
-                borderRadius='$md'
-                p='$4'
-                alignItems='center'
-                justifyContent='center'
-                h='$16'
+              <View
+                className={`border rounded-md p-4 items-center justify-center h-16 ${
+                  budgetLevel === level
+                    ? 'bg-blue-500 border-blue-500'
+                    : 'bg-white border-gray-200'
+                }`}
               >
                 <Text
-                  size='xl'
-                  fontWeight='$bold'
-                  color={budgetLevel === level ? '$white' : '$textLight900'}
+                  className={`text-xl font-bold ${
+                    budgetLevel === level ? 'text-white' : 'text-gray-900'
+                  }`}
                 >
                   {'$'.repeat(level === 'low' ? 1 : level === 'medium' ? 2 : 3)}
                 </Text>
-              </Box>
+              </View>
             </Pressable>
           ))}
-        </HStack>
-      </VStack>
+        </View>
+      </View>
 
       {/* Company */}
-      <VStack space='md'>
-        <Text size='lg' fontWeight='$semibold' color='$textLight900'>
-          Compañía
-        </Text>
-        <HStack space='md' justifyContent='space-around'>
+      <View className='flex-col gap-3'>
+        <Text className='text-lg font-semibold text-gray-900'>Compañía</Text>
+        <View className='flex-row justify-around gap-2'>
           {[
             { type: 'solo' as const, icon: User, label: 'Solo' },
             { type: 'couple' as const, icon: Users, label: 'Pareja' },
@@ -423,187 +357,168 @@ export const TourWizardForm: React.FC<TourWizardFormProps> = ({
             <Pressable
               key={type}
               onPress={() => setGroupType(type)}
-              alignItems='center'
+              className='items-center'
             >
-              <Box
-                w='$16'
-                h='$16'
-                borderRadius='$full'
-                bg={groupType === type ? '$primary500' : '$backgroundLight100'}
-                alignItems='center'
-                justifyContent='center'
-                borderWidth={groupType === type ? '$2' : '$0'}
-                borderColor='$primary500'
+              <View
+                className={`w-16 h-16 rounded-full items-center justify-center ${
+                  groupType === type
+                    ? 'bg-blue-500 border-2 border-blue-500'
+                    : 'bg-gray-100 border-0'
+                }`}
               >
-                <Icon
-                  as={IconComponent}
-                  size='xl'
-                  color={groupType === type ? '$white' : '$textLight600'}
+                <IconComponent
+                  size={24}
+                  color={groupType === type ? '#ffffff' : '#4b5563'}
                 />
-              </Box>
+              </View>
               <Text
-                mt='$2'
-                size='sm'
-                color={groupType === type ? '$primary500' : '$textLight600'}
+                className={`mt-2 text-sm ${
+                  groupType === type
+                    ? 'text-blue-500 font-medium'
+                    : 'text-gray-500'
+                }`}
               >
                 {label}
               </Text>
             </Pressable>
           ))}
-        </HStack>
-      </VStack>
+        </View>
+      </View>
 
       {/* Pace */}
-      <VStack space='md'>
-        <Text size='lg' fontWeight='$semibold' color='$textLight900'>
-          Ritmo
-        </Text>
-        <VStack space='sm'>
-          <Slider
-            value={travelPace}
-            onChange={(value) => setTravelPace(value)}
-            minValue={0}
-            maxValue={100}
-            step={1}
-          >
-            <SliderTrack>
-              <SliderFilledTrack bg='$primary500' />
-            </SliderTrack>
-            <SliderThumb
-              bg='$white'
-              borderWidth='$2'
-              borderColor='$primary500'
-            />
-          </Slider>
-          <HStack justifyContent='space-between' px='$2'>
-            <Text size='sm' color='$textLight600'>
-              Relax
-            </Text>
-            <Text size='sm' color='$textLight600'>
-              Moderado
-            </Text>
-            <Text size='sm' color='$textLight600'>
-              Rápido
-            </Text>
-          </HStack>
-        </VStack>
-      </VStack>
+      <View className='flex-col gap-3'>
+        <Text className='text-lg font-semibold text-gray-900'>Ritmo</Text>
+        <View className='flex-row gap-3'>
+          {[
+            { value: 25, label: 'Relax' },
+            { value: 50, label: 'Moderado' },
+            { value: 75, label: 'Rápido' },
+          ].map((pace) => {
+            const isSelected =
+              Math.abs(travelPace - pace.value) <= 15 ||
+              travelPace === pace.value;
+            return (
+              <Pressable
+                key={pace.label}
+                className='flex-1'
+                onPress={() => setTravelPace(pace.value)}
+              >
+                <View
+                  className={`border rounded-md py-3 items-center justify-center ${
+                    isSelected
+                      ? 'bg-blue-50 border-blue-500'
+                      : 'bg-white border-gray-200'
+                  }`}
+                >
+                  <Text
+                    className={`text-sm font-medium ${
+                      isSelected ? 'text-blue-600' : 'text-gray-600'
+                    }`}
+                  >
+                    {pace.label}
+                  </Text>
+                </View>
+              </Pressable>
+            );
+          })}
+        </View>
+      </View>
 
       {/* Transport */}
-      <VStack space='md'>
-        <Text size='lg' fontWeight='$semibold' color='$textLight900'>
+      <View className='flex-col gap-3'>
+        <Text className='text-lg font-semibold text-gray-900'>
           Transporte (Selección múltiple)
         </Text>
-        <HStack space='md' justifyContent='space-around'>
+        <View className='flex-row justify-around gap-2'>
           {[
             { mode: 'walking', icon: Footprints, label: 'Pie' },
             { mode: 'driving', icon: Car, label: 'Auto' },
             { mode: 'cycling', icon: Bike, label: 'Bici' },
             { mode: 'public_transport', icon: Bus, label: 'Público' },
-          ].map(({ mode, icon: IconComponent, label }) => (
-            <Pressable
-              key={mode}
-              onPress={() => toggleTransportationMode(mode)}
-              alignItems='center'
-            >
-              <Box
-                w='$16'
-                h='$16'
-                borderRadius='$full'
-                bg={
-                  transportationMode.includes(mode)
-                    ? '$primary500'
-                    : '$backgroundLight100'
-                }
-                alignItems='center'
-                justifyContent='center'
-                borderWidth={transportationMode.includes(mode) ? '$2' : '$0'}
-                borderColor='$primary500'
+          ].map(({ mode, icon: IconComponent, label }) => {
+            const isSelected = transportationMode.includes(mode);
+            return (
+              <Pressable
+                key={mode}
+                onPress={() => toggleTransportationMode(mode)}
+                className='items-center'
               >
-                <Icon
-                  as={IconComponent}
-                  size='xl'
-                  color={
-                    transportationMode.includes(mode)
-                      ? '$white'
-                      : '$textLight600'
-                  }
-                />
-              </Box>
-              <Text
-                mt='$2'
-                size='sm'
-                color={
-                  transportationMode.includes(mode)
-                    ? '$primary500'
-                    : '$textLight600'
-                }
-              >
-                {label}
-              </Text>
-            </Pressable>
-          ))}
-        </HStack>
-      </VStack>
-    </VStack>
+                <View
+                  className={`w-16 h-16 rounded-full items-center justify-center ${
+                    isSelected
+                      ? 'bg-blue-500 border-2 border-blue-500'
+                      : 'bg-gray-100 border-0'
+                  }`}
+                >
+                  <IconComponent
+                    size={24}
+                    color={isSelected ? '#ffffff' : '#4b5563'}
+                  />
+                </View>
+                <Text
+                  className={`mt-2 text-sm ${
+                    isSelected ? 'text-blue-500 font-medium' : 'text-gray-500'
+                  }`}
+                >
+                  {label}
+                </Text>
+              </Pressable>
+            );
+          })}
+        </View>
+      </View>
+    </View>
   );
 
   const renderStep3 = () => (
-    <VStack space='xl' flex={1}>
+    <View className='flex-col gap-8 flex-1'>
       {/* Interests */}
-      <VStack space='md'>
-        <Text size='lg' fontWeight='$semibold' color='$textLight900'>
-          Intereses
-        </Text>
-        <Box flexDirection='row' flexWrap='wrap' gap='$2'>
-          {INTEREST_OPTIONS.map((interest) => (
-            <Pressable key={interest} onPress={() => toggleInterest(interest)}>
-              <Box
-                bg={
-                  selectedInterests.includes(interest)
-                    ? '$primary500'
-                    : '$white'
-                }
-                borderWidth='$1'
-                borderColor={
-                  selectedInterests.includes(interest)
-                    ? '$primary500'
-                    : '$backgroundLight300'
-                }
-                borderRadius='$full'
-                px='$4'
-                py='$2'
+      <View className='flex-col gap-3'>
+        <Text className='text-lg font-semibold text-gray-900'>Intereses</Text>
+        <View className='flex-row flex-wrap gap-2'>
+          {INTEREST_OPTIONS.map((interest) => {
+            const isSelected = selectedInterests.includes(interest);
+            return (
+              <Pressable
+                key={interest}
+                onPress={() => toggleInterest(interest)}
               >
-                <Text
-                  size='sm'
-                  color={
-                    selectedInterests.includes(interest)
-                      ? '$white'
-                      : '$textLight900'
-                  }
+                <View
+                  className={`border rounded-full px-4 py-2 ${
+                    isSelected
+                      ? 'bg-blue-500 border-blue-500'
+                      : 'bg-white border-gray-300'
+                  }`}
                 >
-                  {interest}
-                </Text>
-              </Box>
-            </Pressable>
-          ))}
-        </Box>
-      </VStack>
+                  <Text
+                    className={`text-sm ${
+                      isSelected ? 'text-white' : 'text-gray-900'
+                    }`}
+                  >
+                    {interest}
+                  </Text>
+                </View>
+              </Pressable>
+            );
+          })}
+        </View>
+      </View>
 
       {/* Special Notes */}
-      <VStack space='md'>
-        <Text size='lg' fontWeight='$semibold' color='$textLight900'>
+      <View className='flex-col gap-3'>
+        <Text className='text-lg font-semibold text-gray-900'>
           Algo especial?
         </Text>
-        <Textarea size='lg' h='$32'>
-          <TextareaInput
-            placeholder='Escribe aquí... (ej. Soy vegano...)'
-            value={specialNotes}
-            onChangeText={setSpecialNotes}
-          />
-        </Textarea>
-      </VStack>
-    </VStack>
+        <TextInput
+          className='border border-gray-300 rounded-lg p-3 min-h-[120px] bg-white text-base text-gray-900'
+          placeholder='Escribe aquí... (ej. Soy vegano...)'
+          value={specialNotes}
+          onChangeText={setSpecialNotes}
+          multiline
+          textAlignVertical='top'
+        />
+      </View>
+    </View>
   );
 
   const getStepTitle = () => {
@@ -620,50 +535,44 @@ export const TourWizardForm: React.FC<TourWizardFormProps> = ({
   };
 
   return (
-    <Box flex={1} bg='$white'>
+    <View className='flex-1 bg-white'>
       {/* Header */}
-      <Box bg='$primary500' pt='$12' pb='$4' px='$4'>
-        <HStack alignItems='center' space='md' mb='$2'>
+      <View className='bg-blue-500 pt-12 pb-4 px-4'>
+        <View className='flex-row items-center gap-4 mb-2'>
           <Pressable onPress={handleBack}>
-            <Icon as={ArrowLeft} size='lg' color='$white' />
+            <ArrowLeft size={24} color='white' />
           </Pressable>
-          <Box w='$6' />
-        </HStack>
-        <Text textAlign='center' size='sm' color='$white' opacity={0.9}>
+          <View className='w-6' />
+        </View>
+        <Text className='text-center text-sm text-white opacity-90'>
           {getStepTitle()}
         </Text>
-      </Box>
+      </View>
 
       {/* Content */}
-      <ScrollView flex={1} showsVerticalScrollIndicator={false}>
-        <Box p='$4' pb='$24'>
+      <ScrollView
+        className='flex-1'
+        showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps='handled'
+      >
+        <View className='p-4 pb-24'>
           {currentStep === 1 && renderStep1()}
           {currentStep === 2 && renderStep2()}
           {currentStep === 3 && renderStep3()}
-        </Box>
+        </View>
       </ScrollView>
 
       {/* Bottom Button */}
-      <Box
-        position='absolute'
-        bottom='$0'
-        left='$0'
-        right='$0'
-        bg='$white'
-        borderTopWidth='$1'
-        borderTopColor='$backgroundLight200'
-        p='$4'
-        pb='$8'
-      >
-        <Button onPress={handleNext} bg='$primary500' borderRadius='$md'>
-          <ButtonText color='$white' fontWeight='$semibold'>
+      <View className='absolute bottom-0 left-0 right-0 bg-white border-t border-gray-200 p-4 pb-8'>
+        <Pressable
+          onPress={handleNext}
+          className='bg-blue-500 rounded-md py-4 flex-row justify-center items-center'
+        >
+          <Text className='text-white font-semibold text-base'>
             {currentStep === 3 ? 'Generar ZigZag ✨' : 'Siguiente →'}
-          </ButtonText>
-          {currentStep === 3 && (
-            <Icon as={Sparkles} size='md' color='$white' ml='$2' />
-          )}
-        </Button>
-      </Box>
-    </Box>
+          </Text>
+        </Pressable>
+      </View>
+    </View>
   );
 };

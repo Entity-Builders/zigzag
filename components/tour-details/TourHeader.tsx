@@ -1,17 +1,6 @@
 import React from 'react';
-import { Dimensions } from 'react-native';
+import { Dimensions, View, Image, Pressable, Text } from 'react-native';
 import { Map } from '../../features/map';
-import {
-  Box,
-  Image,
-  Button,
-  Icon,
-  VStack,
-  HStack,
-  Badge,
-  BadgeText,
-  Heading,
-} from '@gluestack-ui/themed';
 import { useRouter } from 'expo-router';
 import { ArrowLeft } from 'lucide-react-native';
 import { Tour } from '../../api/tours';
@@ -51,7 +40,7 @@ export const TourHeader = ({ tour }: { tour: Tour }) => {
         ? [tour.activities[0].activityType]
         : ['']);
   return (
-    <Box height={SCREEN_HEIGHT * 0.4} width='$full' position='relative'>
+    <View style={{ height: SCREEN_HEIGHT * 0.4 }} className='w-full relative'>
       {/* Background Image or Static Map */}
       {firstLocation ? (
         <Map
@@ -73,61 +62,35 @@ export const TourHeader = ({ tour }: { tour: Tour }) => {
         <Image
           source={{ uri: imageUri }}
           alt={tour.name}
-          w='$full'
-          h='$full'
+          className='w-full h-full'
           resizeMode='cover'
         />
       )}
 
       {/* Gradient Overlay (Simulated) */}
-      <Box
-        position='absolute'
-        bottom={0}
-        left={0}
-        right={0}
-        height='50%'
-        bg='$black'
-        opacity={0.6}
-      />
+      <View className='absolute bottom-0 left-0 right-0 h-1/2 bg-black opacity-60' />
 
       {/* Back Button */}
-      <Box position='absolute' top={50} left={20} zIndex={10}>
-        <Button
-          size='sm'
-          variant='solid'
-          action='secondary'
-          bg='rgba(255,255,255,0.2)'
+      <View className='absolute top-[50px] left-[20px] z-10'>
+        <Pressable
+          className='bg-white/20 rounded-full p-2'
           onPress={() => router.back()}
-          borderRadius='$full'
-          p='$2'
         >
-          <Icon as={ArrowLeft} color='$white' size='xl' />
-        </Button>
-      </Box>
+          <ArrowLeft color='white' size={24} />
+        </Pressable>
+      </View>
 
       {/* Title & Tags */}
-      <VStack position='absolute' bottom={20} left={20} right={20} space='xs'>
-        <HStack space='sm' flexWrap='wrap'>
+      <View className='absolute bottom-[20px] left-[20px] right-[20px] flex-col gap-1'>
+        <View className='flex-row gap-2 flex-wrap'>
           {tags.map((tag: string) => (
-            <Badge
-              key={tag}
-              size='md'
-              variant='solid'
-              borderRadius='$full'
-              action='info'
-              bg='rgba(255,255,255,0.2)'
-              borderColor='transparent'
-            >
-              <BadgeText color='$white' fontWeight='$medium'>
-                {tag}
-              </BadgeText>
-            </Badge>
+            <View key={tag} className='bg-white/20 rounded-full px-3 py-1'>
+              <Text className='text-white font-medium text-sm'>{tag}</Text>
+            </View>
           ))}
-        </HStack>
-        <Heading color='$white' size='3xl' fontWeight='$bold' mt='$2'>
-          {tour.name}
-        </Heading>
-      </VStack>
-    </Box>
+        </View>
+        <Text className='text-white text-3xl font-bold mt-2'>{tour.name}</Text>
+      </View>
+    </View>
   );
 };

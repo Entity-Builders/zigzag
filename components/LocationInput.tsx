@@ -1,16 +1,5 @@
 import React from 'react';
-import {
-  VStack,
-  HStack,
-  Input,
-  InputField,
-  Button,
-  ButtonText,
-  FormControl,
-  FormControlError,
-  FormControlErrorText,
-  Box,
-} from '@gluestack-ui/themed';
+import { View, Text, TextInput, Pressable } from 'react-native';
 
 interface LocationInputProps {
   onLocationChange: (latitude: string, longitude: string) => void;
@@ -53,41 +42,40 @@ export const LocationInput: React.FC<LocationInputProps> = ({
   };
 
   return (
-    <Box p='$4'>
-      <FormControl isInvalid={!!error}>
-        <VStack>
-          <HStack space='md' alignItems='center'>
-            <VStack flex={1}>
-              <Input>
-                <InputField
-                  value={latitude}
-                  onChangeText={setLatitude}
-                  keyboardType='numeric'
-                  placeholder='Enter latitude'
-                />
-              </Input>
-            </VStack>
-            <VStack flex={1}>
-              <Input>
-                <InputField
-                  value={longitude}
-                  onChangeText={setLongitude}
-                  keyboardType='numeric'
-                  placeholder='Enter longitude'
-                />
-              </Input>
-            </VStack>
-          </HStack>
-          {error && (
-            <FormControlError>
-              <FormControlErrorText>{error}</FormControlErrorText>
-            </FormControlError>
-          )}
-        </VStack>
-      </FormControl>
-      <Button onPress={handleSubmit} mt='$4'>
-        <ButtonText>Update Location</ButtonText>
-      </Button>
-    </Box>
+    <View className='p-4'>
+      <View className='flex-col'>
+        <View className='flex-row items-center gap-4'>
+          <View className='flex-1'>
+            <View className='border border-slate-300 rounded-md'>
+              <TextInput
+                value={latitude}
+                onChangeText={setLatitude}
+                keyboardType='numeric'
+                placeholder='Enter latitude'
+                className='p-3 text-slate-800'
+              />
+            </View>
+          </View>
+          <View className='flex-1'>
+            <View className='border border-slate-300 rounded-md'>
+              <TextInput
+                value={longitude}
+                onChangeText={setLongitude}
+                keyboardType='numeric'
+                placeholder='Enter longitude'
+                className='p-3 text-slate-800'
+              />
+            </View>
+          </View>
+        </View>
+        {!!error && <Text className='text-red-500 mt-2 text-sm'>{error}</Text>}
+      </View>
+      <Pressable
+        onPress={handleSubmit}
+        className='mt-4 bg-blue-600 rounded-md p-3 items-center'
+      >
+        <Text className='text-white font-medium'>Update Location</Text>
+      </Pressable>
+    </View>
   );
 };

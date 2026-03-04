@@ -1,5 +1,5 @@
 import React from 'react';
-import { ScrollView, Button, ButtonText, Icon } from '@gluestack-ui/themed';
+import { ScrollView, Text, Pressable } from 'react-native';
 import { Sparkles, Landmark, Trees, Coffee } from 'lucide-react-native';
 
 const MOODS = [
@@ -16,22 +16,20 @@ export const MoodsSection = () => {
       showsHorizontalScrollIndicator={false}
       contentContainerStyle={{ gap: 12, paddingRight: 20 }}
     >
-      {MOODS.map((mood) => (
-        <Button
-          key={mood.id}
-          variant='outline'
-          borderColor='#D1D5DB'
-          rounded='$full'
-          size='sm'
-          bg='$white'
-          action='secondary'
-        >
-          <Icon as={mood.icon} mr='$2' size='sm' color='#4B5563' />
-          <ButtonText color='#1A1A1A' fontWeight='$medium'>
-            {mood.label}
-          </ButtonText>
-        </Button>
-      ))}
+      {MOODS.map((mood) => {
+        const IconComponent = mood.icon;
+        return (
+          <Pressable
+            key={mood.id}
+            className='flex-row items-center bg-white border border-gray-300 rounded-full px-4 py-2'
+          >
+            <IconComponent size={16} color='#4B5563' />
+            <Text className='text-[#1A1A1A] font-medium text-sm ml-2'>
+              {mood.label}
+            </Text>
+          </Pressable>
+        );
+      })}
     </ScrollView>
   );
 };

@@ -1,5 +1,5 @@
 import React from 'react';
-import { Box, Heading } from '@gluestack-ui/themed';
+import { View, Text } from 'react-native';
 import { Stack, useRouter, useLocalSearchParams } from 'expo-router';
 import { TourWizardForm } from '@/components/tours/TourWizardForm';
 import { GenerateTourDto } from '@/api/tours';
@@ -21,7 +21,7 @@ export default function TourWizardScreen() {
   const { address } = useContext(AppContext);
 
   // Use the createTour hook
-  const { createTour, isLoading, error } = useCreateTour({
+  const { createTour } = useCreateTour({
     category,
     initialLatitude: latParam ? parseFloat(latParam) : address?.lat,
     initialLongitude: lngParam ? parseFloat(lngParam) : address?.lng,

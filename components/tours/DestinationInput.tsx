@@ -1,16 +1,5 @@
-import React, { useState, useEffect, useRef } from 'react';
-import {
-  Box,
-  Input,
-  InputField,
-  InputIcon,
-  InputSlot,
-  VStack,
-  Pressable,
-  Text,
-  ScrollView,
-  Icon,
-} from '@gluestack-ui/themed';
+import React, { useState, useEffect } from 'react';
+import { View, TextInput, Pressable, Text, ScrollView } from 'react-native';
 import { Search, MapPin, X } from 'lucide-react-native';
 import * as ExpoLocation from 'expo-location';
 
@@ -18,7 +7,7 @@ interface DestinationInputProps {
   value?: string;
   onDestinationChange: (
     destination: string,
-    coordinates?: { lat: number; lng: number }
+    coordinates?: { lat: number; lng: number },
   ) => void;
 }
 
@@ -35,7 +24,7 @@ async function placesAutocomplete(input: string) {
           'suggestions.placePrediction.placeId,suggestions.placePrediction.text',
       },
       body: JSON.stringify({ input }),
-    }
+    },
   );
   if (!resp.ok) throw new Error(`Autocomplete failed: ${resp.status}`);
   return resp.json();
@@ -48,7 +37,7 @@ async function placeDetails(placeId: string) {
       headers: {
         'X-Goog-Api-Key': process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY!,
       },
-    }
+    },
   );
   if (!resp.ok) throw new Error(`Place details failed: ${resp.status}`);
   return resp.json();
@@ -137,17 +126,14 @@ export const DestinationInput: React.FC<DestinationInputProps> = ({
     isFocused && locationResults.length > 0 && term.length >= 3;
 
   return (
-    <Box position='relative' w='$full' zIndex={showResults ? 1000 : 1}>
-      <Input
-        variant='outline'
-        size='lg'
-        isFocused={isFocused}
-        isInvalid={false}
+    <View className='relative w-full z-50'>
+      <View
+        className={`flex-row items-center bg-white border rounded-md px-3 py-2 ${
+          isFocused ? 'border-blue-500' : 'border-gray-300'
+        }`}
       >
-        <InputSlot pl='$3'>
-          <InputIcon as={Search} size='md' color='$textLight600' />
-        </InputSlot>
-        <InputField
+        <Search size={20} color='#4B5563' className='mr-2' />
+        <TextInput
           placeholder='Buscar destino'
           value={term}
           onChangeText={(text) => {
@@ -162,104 +148,50 @@ export const DestinationInput: React.FC<DestinationInputProps> = ({
             // Delay to allow item selection
             setTimeout(() => setIsFocused(false), 200);
           }}
+          className='flex-1 text-gray-900 text-base'
         />
         {term.length > 0 && (
-          <InputSlot pr='$3'>
-            <Pressable onPress={handleClear}>
-              <InputIcon as={X} size='sm' color='$textLight600' />
-            </Pressable>
-          </InputSlot>
+          <Pressable onPress={handleClear} className='p-1'>
+            <X size={20} color='#4B5563' />
+          </Pressable>
         )}
-      </Input>
+      </View>
 
       {/* Results Dropdown */}
       {showResults && (
-        <Box
-          position='absolute'
-          top='$12'
-          left='$0'
-          right='$0'
-          zIndex={1001}
-          borderRadius='$md'
-          borderWidth='$1'
-          borderColor='$backgroundLight300'
-          shadowColor='$black'
-          shadowOffset={{ width: 0, height: 2 }}
-          shadowOpacity={0.1}
-          shadowRadius={8}
-          elevation={10}
-          maxHeight='$64'
-          overflow='hidden'
-          style={{
-            backgroundColor: '#FFFFFF',
-            opacity: 1,
-          }}
-          pointerEvents='box-none'
-        >
-          <Box
-            style={{
-              backgroundColor: '#FFFFFF',
-              width: '100%',
-              height: '100%',
-            }}
-            pointerEvents='auto'
+        <View className='absolute top-[52px] left-0 right-0 z-[1001] bg-white rounded-md border border-gray-200 shadow-lg elevation-10 max-h-[250px] overflow-hidden'>
+          <ScrollView
+            nestedScrollEnabled
+            className='w-full bg-white'
+            keyboardShouldPersistTaps='handled'
           >
-            <ScrollView
-              nestedScrollEnabled
-              style={{
-                backgroundColor: '#FFFFFF',
-                width: '100%',
-              }}
-              contentContainerStyle={{
-                backgroundColor: '#FFFFFF',
-              }}
-            >
-              <VStack
-                p='$2'
-                style={{
-                  backgroundColor: '#FFFFFF',
-                  width: '100%',
-                }}
-              >
-                {locationResults.map((item) => (
-                  <Pressable
-                    key={item.place_id}
-                    onPress={() => handleSelectItem(item)}
-                  >
-                    {({ pressed }) => (
-                      <Box
-                        flexDirection='row'
-                        alignItems='center'
-                        p='$3'
-                        borderRadius='$sm'
-                        style={{
-                          backgroundColor: pressed ? '#F3F4F6' : '#FFFFFF',
-                          width: '100%',
-                        }}
-                      >
-                        <Box
-                          w='$8'
-                          h='$8'
-                          borderRadius='$full'
-                          bg='$primary50'
-                          alignItems='center'
-                          justifyContent='center'
-                          mr='$3'
-                        >
-                          <Icon as={MapPin} size='sm' color='$primary500' />
-                        </Box>
-                        <Text flex={1} size='md' color='$textLight900'>
-                          {item.structured_formatting.main_text}
-                        </Text>
-                      </Box>
-                    )}
-                  </Pressable>
-                ))}
-              </VStack>
-            </ScrollView>
-          </Box>
-        </Box>
+            <View className='flex-col p-2 w-full bg-white'>
+              {locationResults.map((item) => (
+                <Pressable
+                  key={item.place_id}
+                  onPress={() => handleSelectItem(item)}
+                  className='w-full'
+                >
+                  {({ pressed }) => (
+                    <View
+                      className={`flex-row items-center p-3 rounded-sm w-full ${
+                        pressed ? 'bg-gray-100' : 'bg-white'
+                      }`}
+                    >
+                      <View className='w-8 h-8 rounded-full bg-blue-50 items-center justify-center mr-3'>
+                        <MapPin size={16} color='#3B82F6' />
+                      </View>
+                      <Text className='flex-1 text-base text-gray-900'>
+                        {item.structured_formatting.main_text}
+                      </Text>
+                    </View>
+                  )}
+                </Pressable>
+              ))}
+            </View>
+          </ScrollView>
+        </View>
       )}
-    </Box>
+    </View>
   );
 };

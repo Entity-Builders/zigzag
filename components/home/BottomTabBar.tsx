@@ -1,13 +1,5 @@
 import React from 'react';
-import {
-  Box,
-  HStack,
-  Pressable,
-  Icon,
-  Text,
-  Button,
-  ButtonIcon,
-} from '@gluestack-ui/themed';
+import { View, Pressable, Text } from 'react-native';
 import {
   Home,
   Bookmark,
@@ -30,27 +22,8 @@ export const BottomTabBar = ({
   };
 
   return (
-    <Box
-      position='absolute'
-      bottom={0}
-      left={0}
-      right={0}
-      bg='$white'
-      pt='$3'
-      pb='$8' // Extra padding for bottom safe area
-      borderTopWidth={1}
-      borderColor='$gray100'
-      shadowColor='#000'
-      shadowOffset={{ width: 0, height: -2 }}
-      shadowOpacity={0.05}
-      shadowRadius={10}
-      elevation={10}
-    >
-      <HStack
-        justifyContent='space-around'
-        alignItems='center'
-        position='relative'
-      >
+    <View className='absolute bottom-0 left-0 right-0 bg-white pt-3 pb-8 border-t border-gray-100 shadow-md'>
+      <View className='flex-row justify-around items-center relative'>
         {state.routes.map((route, index) => {
           const { options } = descriptors[route.key];
           const isFocused = state.index === index;
@@ -67,68 +40,52 @@ export const BottomTabBar = ({
             }
           };
 
-          // Determine icon and label based on route name
-          // In Expo Router tabs, route names match the file names (e.g., "index", "saved", "map", "profile")
-          let icon = Home;
+          let IconComponent = Home;
           let label = 'Inicio';
 
           if (route.name === 'index') {
-            icon = Home;
+            IconComponent = Home;
             label = 'Inicio';
           } else if (route.name === 'saved') {
-            icon = Bookmark;
+            IconComponent = Bookmark;
             label = 'Guardados';
           } else if (route.name === 'map') {
-            icon = MapIcon;
+            IconComponent = MapIcon;
             label = 'Mapa';
           } else if (route.name === 'profile') {
-            icon = User;
+            IconComponent = User;
             label = 'Perfil';
           }
 
           return (
             <Pressable
               key={route.key}
-              alignItems='center'
+              className='items-center flex-1'
               onPress={onPress}
-              flex={1}
             >
-              <Icon
-                as={icon}
-                size='xl'
+              <IconComponent
+                size={24}
                 color={isFocused ? '#2E4038' : '#9CA3AF'}
               />
               <Text
-                size='xs'
-                mt='$1'
-                color={isFocused ? '#2E4038' : '#9CA3AF'}
-                fontWeight={isFocused ? '$bold' : '$medium'}
+                className={`text-xs mt-1 ${isFocused ? 'text-[#2E4038] font-bold' : 'text-gray-400 font-medium'}`}
               >
                 {label}
               </Text>
             </Pressable>
           );
         })}
-      </HStack>
+      </View>
 
-      {/* FAB Button in the center - positioned absolutely over the tab bar */}
-      <Box position='absolute' bottom={16} alignSelf='center' zIndex={10}>
-        <Button
+      {/* FAB Button */}
+      <View className='absolute bottom-16 self-center z-10 w-14 h-14 bg-blue-500 rounded-full shadow-lg'>
+        <Pressable
           onPress={handleCreateTour}
-          size='lg'
-          borderRadius='$full'
-          bg='$primary500'
-          width={56}
-          height={56}
-          shadowColor='#000'
-          shadowOffset={{ width: 0, height: 4 }}
-          shadowOpacity={0.3}
-          shadowRadius={8}
-          elevation={8}
+          className='flex-1 items-center justify-center p-3'
         >
-          <ButtonIcon as={Sparkles} size='xl' color='$white' />
-        </Button>
-      </Box>
-    </Box>
+          <Sparkles size={24} color='white' />
+        </Pressable>
+      </View>
+    </View>
   );
 };

@@ -1,15 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { ScrollView, ActivityIndicator } from 'react-native';
-import {
-  Box,
-  VStack,
-  Heading,
-  Button,
-  ButtonText,
-  Icon,
-  Text,
-  Spinner,
-} from '@gluestack-ui/themed';
+import { View, Text, Pressable } from 'react-native';
 import { Stack, useLocalSearchParams } from 'expo-router';
 import { MapPin } from 'lucide-react-native';
 import { fetchTourById, Tour } from '../../api/tours';
@@ -24,7 +15,7 @@ import { TourStop } from '../../components/tour-details/types';
 // Helper function to transform activities to stops, grouping by day if needed
 function transformActivitiesToStops(
   activities: Tour['activities'],
-  totalDays?: number
+  totalDays?: number,
 ): TourStop[] {
   if (!activities || activities.length === 0) {
     return [];
@@ -35,7 +26,7 @@ function transformActivitiesToStops(
 
   // Check if we have dayNumber in activities
   const hasDayNumbers = activities.some(
-    (item) => item.dayNumber !== undefined && item.dayNumber !== null
+    (item) => item.dayNumber !== undefined && item.dayNumber !== null,
   );
 
   // If we shouldn't group by day or don't have day numbers, use original behavior
@@ -194,14 +185,14 @@ export default function TourDetailScreen() {
         setIsGeneratingActivities(
           (generationStatus === 'generating' ||
             generationStatus === 'pending') &&
-            activities.length === 0
+            activities.length === 0,
         );
         setGenerationMessage(metadata?.generationMessage || '');
 
         // Transform activities to stops (with day grouping if needed)
         const transformedStops = transformActivitiesToStops(
           activities,
-          data.totalDays
+          data.totalDays,
         );
         console.log('$$$ activities:', activities.length);
         setStops(transformedStops);
@@ -240,7 +231,7 @@ export default function TourDetailScreen() {
           // Transform activities (with day grouping if needed)
           const transformedStops = transformActivitiesToStops(
             activities,
-            data.totalDays
+            data.totalDays,
           );
           setStops(transformedStops);
         }
@@ -256,27 +247,17 @@ export default function TourDetailScreen() {
 
   if (loading) {
     return (
-      <Box
-        flex={1}
-        bg='$backgroundLight50'
-        justifyContent='center'
-        alignItems='center'
-      >
-        <ActivityIndicator size='large' color='#0000ff' />
-      </Box>
+      <View className='flex-1 bg-slate-50 items-center justify-center'>
+        <ActivityIndicator size='large' color='#3b82f6' />
+      </View>
     );
   }
 
   if (!tour) {
     return (
-      <Box
-        flex={1}
-        bg='$backgroundLight50'
-        justifyContent='center'
-        alignItems='center'
-      >
-        <Text>Tour not found</Text>
-      </Box>
+      <View className='flex-1 bg-slate-50 items-center justify-center'>
+        <Text className='text-slate-800'>Tour not found</Text>
+      </View>
     );
   }
 
@@ -284,62 +265,49 @@ export default function TourDetailScreen() {
     <>
       <Stack.Screen options={{ headerShown: false }} />
 
-      <Box flex={1} bg='$backgroundLight50'>
+      <View className='flex-1 bg-slate-50'>
         <ScrollView
           showsVerticalScrollIndicator={false}
           contentContainerStyle={{ paddingBottom: 100 }}
         >
           <TourHeader tour={tour} />
 
-          <Box position='relative' zIndex={10}>
+          <View className='relative z-10'>
             <QuickStatsBar tour={tour} />
-          </Box>
+          </View>
 
-          <VStack mt='$6' px='$4'>
-            <Heading size='md' mb='$4' color='$textLight800'>
+          <View className='mt-6 px-4 flex-col'>
+            <Text className='text-xl font-bold mb-4 text-slate-800'>
               Tu Recorrido
-            </Heading>
+            </Text>
 
             {isGeneratingActivities ? (
-              <Box
-                p='$8'
-                alignItems='center'
-                justifyContent='center'
-                bg='$backgroundLight100'
-                borderRadius='$md'
-              >
-                <Spinner size='large' color='$primary500' mb='$4' />
-                <Text
-                  color='$textLight600'
-                  textAlign='center'
-                  fontWeight='$medium'
-                  mb='$2'
-                >
+              <View className='p-8 items-center justify-center bg-slate-100 rounded-md'>
+                <ActivityIndicator
+                  size='large'
+                  color='#3b82f6'
+                  className='mb-4'
+                />
+                <Text className='text-slate-600 text-center font-medium mb-2'>
                   {generationMessage || 'Generando actividades para tu tour...'}
                 </Text>
-                <Text size='sm' color='$textLight500' textAlign='center'>
+                <Text className='text-slate-500 text-center text-sm'>
                   Esto puede tomar unos momentos
                 </Text>
-              </Box>
+              </View>
             ) : stops.length === 0 ? (
-              <Box
-                p='$8'
-                alignItems='center'
-                justifyContent='center'
-                bg='$backgroundLight100'
-                borderRadius='$md'
-              >
-                <Text color='$textLight600' textAlign='center'>
+              <View className='p-8 items-center justify-center bg-slate-100 rounded-md'>
+                <Text className='text-slate-600 text-center'>
                   No hay actividades disponibles para este tour
                 </Text>
-              </Box>
+              </View>
             ) : (
-              <VStack>
+              <View className='flex-col'>
                 {stops.map((item, index) => {
                   if (item.type === 'location') {
                     // Find if this is the last location stop (not counting day headers)
                     const locationStops = stops.filter(
-                      (s) => s.type === 'location'
+                      (s) => s.type === 'location',
                     );
                     const isLastLocation =
                       locationStops[locationStops.length - 1]?.id === item.id;
@@ -356,38 +324,21 @@ export default function TourDetailScreen() {
                     return <SmartConnector key={item.id} data={item} />;
                   }
                 })}
-              </VStack>
+              </View>
             )}
-          </VStack>
+          </View>
         </ScrollView>
 
         {/* Floating CTA */}
-        <Box
-          position='absolute'
-          bottom={0}
-          left={0}
-          right={0}
-          p='$4'
-          bg='$white'
-          borderTopWidth={1}
-          borderTopColor='$borderLight100'
-        >
-          <Button
-            size='lg'
-            variant='solid'
-            action='primary'
-            borderRadius='$full'
-            shadowColor='$primary500'
-            shadowOffset={{ width: 0, height: 4 }}
-            shadowOpacity={0.3}
-            shadowRadius={8}
-            elevation={5}
-          >
-            <ButtonText fontWeight='$bold'>Comenzar Recorrido</ButtonText>
-            <Icon as={MapPin} color='$white' ml='$2' />
-          </Button>
-        </Box>
-      </Box>
+        <View className='absolute bottom-0 left-0 right-0 p-4 bg-white border-t border-slate-200 shadow-lg'>
+          <Pressable className='bg-blue-600 rounded-full py-4 flex-row items-center justify-center shadow-md'>
+            <Text className='text-white font-bold text-lg'>
+              Comenzar Recorrido
+            </Text>
+            <MapPin color='white' size={20} className='ml-2' />
+          </Pressable>
+        </View>
+      </View>
     </>
   );
 }

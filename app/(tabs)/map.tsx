@@ -1,10 +1,10 @@
-import { Center, Heading, Text } from '@gluestack-ui/themed';
+import { View, Text } from 'react-native';
 
 export default function MapScreen() {
   return (
-    <Center flex={1}>
-      <Heading>Mapa</Heading>
+    <View className='flex-1 items-center justify-center'>
+      <Text className='text-2xl font-bold mb-2'>Mapa</Text>
       <Text>Próximamente...</Text>
-    </Center>
+    </View>
   );
 }

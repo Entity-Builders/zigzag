@@ -1,4 +1,4 @@
-import { View, Text } from '@gluestack-ui/themed';
+import { View, Text } from 'react-native';
 import {
   AutocompleteDropdown,
   AutocompleteDropdownItem,
@@ -20,7 +20,7 @@ async function placesAutocomplete(input: string) {
           'suggestions.placePrediction.placeId,suggestions.placePrediction.text',
       },
       body: JSON.stringify({ input }),
-    }
+    },
   );
   if (!resp.ok) throw new Error(`Autocomplete failed: ${resp.status}`);
   return resp.json();
@@ -33,7 +33,7 @@ async function placeDetails(placeId: string) {
       headers: {
         'X-Goog-Api-Key': process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY!,
       },
-    }
+    },
   );
   if (!resp.ok) throw new Error(`Place details failed: ${resp.status}`);
   return resp.json();
@@ -76,7 +76,9 @@ export const SearchByAddressInput = () => {
       return;
     }
 
-    const locationId = locationResults.find((el) => el.place_id === item.id)?.place_id;
+    const locationId = locationResults.find(
+      (el) => el.place_id === item.id,
+    )?.place_id;
 
     if (locationId) {
       try {
@@ -100,12 +102,20 @@ export const SearchByAddressInput = () => {
 
   return (
     <View>
-      <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+      <View
+        style={{
+          flexDirection: 'row',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          marginBottom: 8,
+        }}
+      >
         <Text style={{ fontWeight: '600' }}>Dirección</Text>
         <Text
           onPress={async () => {
             try {
-              const { status } = await ExpoLocation.requestForegroundPermissionsAsync();
+              const { status } =
+                await ExpoLocation.requestForegroundPermissionsAsync();
               if (status !== 'granted') return;
               const pos = await ExpoLocation.getCurrentPositionAsync({});
               setAddress({

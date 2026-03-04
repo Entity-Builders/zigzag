@@ -1,6 +1,5 @@
 import { Stack } from 'expo-router';
-import { GluestackUIProvider, Box, Text } from '@gluestack-ui/themed';
-import { config } from '../config';
+import { View, Text } from 'react-native';
 import { AppProvider } from '@/context/app';
 import { AutocompleteDropdownContextProvider } from 'react-native-autocomplete-dropdown';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
@@ -16,10 +15,10 @@ SplashScreen.preventAutoHideAsync();
 
 function ErrorFallback({ error }: { error: Error }) {
   return (
-    <Box style={styles.container}>
+    <View style={styles.container}>
       <Text style={styles.errorText}>Something went wrong:</Text>
       <Text style={styles.errorMessage}>{error.message}</Text>
-    </Box>
+    </View>
   );
 }
 
@@ -30,22 +29,20 @@ export default function RootLayout() {
   }, []);
 
   return (
-    <GluestackUIProvider config={config}>
-      <SafeAreaProvider>
-        <ErrorBoundary FallbackComponent={ErrorFallback}>
-          <GestureHandlerRootView style={{ flex: 1 }}>
-            <AppProvider>
-              <AutocompleteDropdownContextProvider>
-                <Stack screenOptions={{ headerShown: false }}>
-                  <Stack.Screen name='(tabs)' />
-                  <Stack.Screen name='tours' />
-                </Stack>
-              </AutocompleteDropdownContextProvider>
-            </AppProvider>
-          </GestureHandlerRootView>
-        </ErrorBoundary>
-      </SafeAreaProvider>
-    </GluestackUIProvider>
+    <SafeAreaProvider>
+      <ErrorBoundary FallbackComponent={ErrorFallback}>
+        <GestureHandlerRootView style={{ flex: 1 }}>
+          <AppProvider>
+            <AutocompleteDropdownContextProvider>
+              <Stack screenOptions={{ headerShown: false }}>
+                <Stack.Screen name='(tabs)' />
+                <Stack.Screen name='tours' />
+              </Stack>
+            </AutocompleteDropdownContextProvider>
+          </AppProvider>
+        </GestureHandlerRootView>
+      </ErrorBoundary>
+    </SafeAreaProvider>
   );
 }
 

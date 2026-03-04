@@ -1,16 +1,12 @@
 import React, { useEffect, useState } from 'react';
 import {
-  VStack,
-  Heading,
-  ScrollView,
-  Box,
-  HStack,
-  Image,
-  Icon,
+  View,
   Text,
-  Spinner,
+  ScrollView,
+  Image,
   Pressable,
-} from '@gluestack-ui/themed';
+  ActivityIndicator,
+} from 'react-native';
 import { MapPin, ChevronRight } from 'lucide-react-native';
 import { Link } from 'expo-router';
 import { useMap } from '../../context/app';
@@ -45,7 +41,7 @@ export const RoutesSection = ({
         const fetchedTours = await fetchNearbyTours(
           center.lat,
           center.lng,
-          category
+          category,
         );
         if (fetchedTours && fetchedTours.length > 0) {
           setTours(fetchedTours);
@@ -60,13 +56,9 @@ export const RoutesSection = ({
     loadTours();
   }, [center, category]);
 
-  // If loading, maybe show a spinner or skeleton (keeping it simple for now)
-
-  // Helper to get images safely
   const getTourImages = (tour: Tour) => {
     const activities = tour.activities || [];
 
-    // Try to get photos from first two activities
     const img1 = activities[0]?.activity?.photos?.[0]
       ? typeof activities[0].activity.photos[0] === 'string'
         ? activities[0].activity.photos[0]
@@ -82,42 +74,28 @@ export const RoutesSection = ({
     return { map: DEFAULT_MAP_IMAGE, thumb1: img1, thumb2: img2 };
   };
 
-  if (!tours.length && !loading) {
-    // Fallback to hardcoded if no tours found (or show empty state)
-    // For now, let's hide the section or show empty message if truly dynamic
-    // But user might expect the hardcoded ones as fallback?
-    // Let's keep the hardcoded ones ONLY if API fails or returns empty to avoid breaking UI during dev?
-    // Actually, user wants to return tours from backend.
-    // If loading, show spinner.
-  }
-
   return (
-    <VStack space='lg'>
-      <HStack
-        px='$4'
-        justifyContent='space-between'
-        alignItems='center'
-        w='$full'
-      >
-        <Heading size='lg' color='#1A1A1A' flex={1}>
+    <View className='flex-col gap-4'>
+      <View className='px-4 flex-row justify-between items-center w-full'>
+        <Text className='text-xl font-bold text-[#1A1A1A] flex-1'>
           {categoryTitle}
-        </Heading>
+        </Text>
         <Link href={`/tours?category=${encodeURIComponent(category)}`} asChild>
           <Pressable>
-            <HStack space='xs' alignItems='center'>
-              <Text size='sm' color='#2E4038' fontWeight='$medium'>
+            <View className='flex-row gap-1 items-center'>
+              <Text className='text-sm text-[#2E4038] font-medium'>
                 Ver todo
               </Text>
-              <Icon as={ChevronRight} size='sm' color='#2E4038' />
-            </HStack>
+              <ChevronRight size={16} color='#2E4038' />
+            </View>
           </Pressable>
         </Link>
-      </HStack>
+      </View>
 
       {loading ? (
-        <Box h={200} justifyContent='center' alignItems='center'>
-          <Spinner size='large' />
-        </Box>
+        <View className='h-[200px] justify-center items-center'>
+          <ActivityIndicator size='large' color='#3B82F6' />
+        </View>
       ) : (
         <ScrollView
           horizontal
@@ -127,77 +105,59 @@ export const RoutesSection = ({
           {tours.map((tour) => {
             const images = getTourImages(tour);
             return (
-              <Link href={`/tours/${tour.id}`} asChild>
+              <Link href={`/tours/${tour.id}`} asChild key={tour.id}>
                 <Pressable>
-                  <Box
-                    key={tour.id}
-                    w={300}
-                    bg='$white'
-                    rounded='$2xl'
-                    overflow='hidden'
-                    shadowColor='#000'
-                    shadowOffset={{ width: 0, height: 2 }}
-                    shadowOpacity={0.05}
-                    shadowRadius={8}
-                    elevation={2}
-                  >
+                  <View className='w-[300px] bg-white rounded-2xl overflow-hidden shadow-sm elevation-2'>
                     {/* Card Images */}
-                    <HStack h={180}>
-                      <Box flex={2} bg='$gray100'>
+                    <View className='flex-row h-[180px]'>
+                      <View className='flex-[2] bg-gray-100'>
                         <Image
                           source={{ uri: images.map }}
                           alt='Map Route'
-                          w='$full'
-                          h='$full'
+                          className='w-full h-full'
                           resizeMode='cover'
                         />
-                      </Box>
-                      <VStack flex={1} borderLeftWidth={1} borderColor='$white'>
-                        <Box
-                          flex={1}
-                          borderBottomWidth={1}
-                          borderColor='$white'
-                        >
+                      </View>
+                      <View className='flex-1 flex-col border-l border-white'>
+                        <View className='flex-1 border-b border-white'>
                           <Image
                             source={{ uri: images.thumb1 }}
                             alt='Stop 1'
-                            w='$full'
-                            h='$full'
+                            className='w-full h-full'
                             resizeMode='cover'
                           />
-                        </Box>
-                        <Box flex={1}>
+                        </View>
+                        <View className='flex-1'>
                           <Image
                             source={{ uri: images.thumb2 }}
                             alt='Stop 2'
-                            w='$full'
-                            h='$full'
+                            className='w-full h-full'
                             resizeMode='cover'
                           />
-                        </Box>
-                      </VStack>
-                    </HStack>
+                        </View>
+                      </View>
+                    </View>
 
                     {/* Card Content */}
-                    <VStack p='$4' space='xs'>
-                      <Heading size='md' color='#1A1A1A'>
+                    <View className='p-4 flex-col gap-1'>
+                      <Text className='text-lg font-bold text-[#1A1A1A]'>
                         {tour.name}
-                      </Heading>
-                      <HStack space='sm' alignItems='center'>
-                        <Icon as={MapPin} size='xs' color='#6B7280' />
-                        <Text size='sm' color='#6B7280'>
+                      </Text>
+                      <View className='flex-row gap-2 items-center'>
+                        <MapPin size={12} color='#6B7280' />
+                        <Text className='text-sm text-gray-500'>
                           {tour.activities?.length || 0} paradas •{' '}
                           {(tour.duration || 0).toFixed(1)} hrs
                         </Text>
-                      </HStack>
-                    </VStack>
-                  </Box>
+                      </View>
+                    </View>
+                  </View>
                 </Pressable>
               </Link>
             );
           })}
         </ScrollView>
       )}
-    </VStack>
+    </View>
   );
 };

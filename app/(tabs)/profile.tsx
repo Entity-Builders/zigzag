@@ -1,23 +1,20 @@
-import {
-  Button,
-  ButtonText,
-  Center,
-  Heading,
-  VStack,
-} from '@gluestack-ui/themed';
+import { View, Text, Pressable } from 'react-native';
 import { useRouter } from 'expo-router';
 
 export default function ProfileScreen() {
   const router = useRouter();
 
   return (
-    <Center flex={1}>
-      <VStack space='md' alignItems='center'>
-        <Heading size='xl'>Profile</Heading>
-        <Button onPress={() => router.push('/')} size='lg'>
-          <ButtonText>Volver a Home</ButtonText>
-        </Button>
-      </VStack>
-    </Center>
+    <View className='flex-1 items-center justify-center'>
+      <View className='flex-col items-center gap-4'>
+        <Text className='text-2xl font-bold mb-2'>Profile</Text>
+        <Pressable
+          onPress={() => router.push('/')}
+          className='bg-blue-600 px-6 py-3 rounded-lg flex-row items-center justify-center'
+        >
+          <Text className='text-white font-medium text-lg'>Volver a Home</Text>
+        </Pressable>
+      </View>
+    </View>
   );
 }

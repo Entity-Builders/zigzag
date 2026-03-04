@@ -20,26 +20,14 @@ import React, {
 } from 'react';
 import { Pressable, Text } from 'react-native';
 import { cssInterop } from 'nativewind';
-import { tva } from '@gluestack-ui/nativewind-utils/tva';
 
-const bottomSheetBackdropStyle = tva({
-  base: 'absolute inset-0 flex-1 touch-none select-none bg-black opacity-0',
-});
-
-const bottomSheetContentStyle = tva({
-  base: 'mt-2',
-});
-const bottomSheetTriggerStyle = tva({
-  base: '',
-});
-
-const bottomSheetIndicatorStyle = tva({
-  base: 'py-1 w-full items-center rounded-t-lg ',
-});
-
-const bottomSheetItemStyle = tva({
-  base: 'p-3 flex-row items-center rounded-sm w-full disabled:opacity-0.4 web:pointer-events-auto disabled:cursor-not-allowed hover:bg-background-50 active:bg-background-100 focus:bg-background-100 web:focus-visible:bg-background-100',
-});
+const bottomSheetBackdropStyle =
+  'absolute inset-0 flex-1 touch-none select-none bg-black opacity-0';
+const bottomSheetContentStyle = 'mt-2';
+const bottomSheetTriggerStyle = '';
+const bottomSheetIndicatorStyle = 'py-1 w-full items-center rounded-t-lg';
+const bottomSheetItemStyle =
+  'p-3 flex-row items-center rounded-sm w-full disabled:opacity-0.4 web:pointer-events-auto disabled:cursor-not-allowed hover:bg-neutral-50 active:bg-neutral-100 focus:bg-neutral-100 web:focus-visible:bg-neutral-100';
 
 export const BottomSheetContext = createContext<{
   visible: boolean;
@@ -113,7 +101,7 @@ export const BottomSheetPortal = ({
         handleClose();
       }
     },
-    [handleClose]
+    [handleClose],
   );
 
   return (
@@ -144,14 +132,13 @@ export const BottomSheetTrigger = ({
         handleOpen();
       }}
       {...props}
-      style={bottomSheetTriggerStyle({
-        className: className,
-      })}
+      className={[bottomSheetTriggerStyle, className].filter(Boolean).join(' ')}
     >
       {props.children}
     </Pressable>
   );
 };
+
 type IBottomSheetBackdrop = React.ComponentProps<
   typeof GorhomBottomSheetBackdrop
 >;
@@ -165,9 +152,9 @@ export const BottomSheetBackdrop = ({
   return (
     <GorhomBottomSheetBackdrop
       // @ts-ignore
-      className={bottomSheetBackdropStyle({
-        className: className,
-      })}
+      className={[bottomSheetBackdropStyle, className]
+        .filter(Boolean)
+        .join(' ')}
       disappearsOnIndex={disappearsOnIndex}
       appearsOnIndex={appearsOnIndex}
       {...props}
@@ -188,9 +175,9 @@ export const BottomSheetDragIndicator = ({
     <BottomSheetHandle
       {...props}
       // @ts-ignore
-      className={bottomSheetIndicatorStyle({
-        className: className,
-      })}
+      className={[bottomSheetIndicatorStyle, className]
+        .filter(Boolean)
+        .join(' ')}
     >
       {children}
     </BottomSheetHandle>
