@@ -66,10 +66,12 @@ function buildEasConfig() {
       development: {
         developmentClient: true,
         distribution: 'internal',
+        node: '22.12.0',
         env: devEnv,
       },
       'development-simulator': {
         developmentClient: true,
+        node: '22.12.0',
         ios: {
           simulator: true,
         },
@@ -78,18 +80,21 @@ function buildEasConfig() {
       preview: {
         distribution: 'internal',
         channel: 'preview',
+        node: '22.12.0',
         env: previewEnv,
       },
       'preview-testflight': {
         distribution: 'store',
         autoIncrement: true,
         channel: 'preview',
+        node: '22.12.0',
         extends: 'preview',
       },
       production: {
         distribution: 'store',
         autoIncrement: true,
         channel: 'production',
+        node: '22.12.0',
         env: productionEnv,
       },
     },
