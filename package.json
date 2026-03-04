@@ -15,6 +15,7 @@
     "build:preview": "eas build --profile preview --platform ios",
     "build:prod": "eas build --profile production --platform ios",
     "build:preview:testflight": "eas build --profile preview-testflight --platform ios --auto-submit",
+    "eas:config": "node scripts/generate-eas-config.js",
     "docker:compose": "docker-compose up -d"
   },
   "dependencies": {
