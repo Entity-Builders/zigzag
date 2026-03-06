@@ -85,6 +85,26 @@ export async function fetchNearbyTours(
   return data;
 }
 
+export async function fetchPublicTours(limit: number = 20) {
+  const { data, error } = await supabase
+    .from('tour')
+    .select('*, activities:tour_activity(*)')
+    .order('createdAt', { ascending: false })
+    .limit(limit);
+  if (error) throw error;
+  return data ?? [];
+}
+
+export async function fetchMyTours(userId: string) {
+  const { data, error } = await supabase
+    .from('tour')
+    .select('*, activities:tour_activity(*)')
+    .eq('userId', userId)
+    .order('createdAt', { ascending: false });
+  if (error) throw error;
+  return data ?? [];
+}
+
 export async function fetchTourById(id: string) {
   const { data, error } = await supabase
     .from('tour')
