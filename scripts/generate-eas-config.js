@@ -58,6 +58,7 @@ function buildEasConfig() {
   return {
     cli: {
       version: '>= 7.0.0',
+      appVersionSource: 'remote',
     },
     build: {
       development: {

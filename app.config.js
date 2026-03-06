@@ -2,7 +2,7 @@ const { createAppConfig } = require('@eb-packages/expo-config');
 
 module.exports = createAppConfig({
   name: 'zigzag',
-  slug: 'zigzag',
+  slug: 'zig-zag',
   version: '1.0.0',
   projectId: '34a46d03-0540-481a-8326-ea123a330635',
   scheme: 'zigzag',
