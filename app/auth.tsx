@@ -16,27 +16,44 @@ import { colors, typography, spacing, radii } from '../constants/theme';
 
 export default function AuthScreen() {
   const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
-  const [sent, setSent] = useState(false);
+  const [isSignUp, setIsSignUp] = useState(false);
 
-  const handleMagicLink = async () => {
+  const handleAuth = async () => {
     if (!email.trim()) {
       Alert.alert('Error', 'Ingresá tu email');
       return;
     }
-
-    setLoading(true);
-    const { error } = await supabase.auth.signInWithOtp({
-      email: email.trim(),
-    });
-    setLoading(false);
-
-    if (error) {
-      Alert.alert('Error', error.message);
+    if (!password.trim() || password.length < 6) {
+      Alert.alert('Error', 'La contraseña debe tener al menos 6 caracteres');
       return;
     }
 
-    setSent(true);
+    setLoading(true);
+
+    if (isSignUp) {
+      const { error } = await supabase.auth.signUp({
+        email: email.trim(),
+        password: password.trim(),
+      });
+      setLoading(false);
+      if (error) {
+        Alert.alert('Error', error.message);
+        return;
+      }
+      Alert.alert('¡Listo!', 'Cuenta creada. Ya estás logueado.');
+    } else {
+      const { error } = await supabase.auth.signInWithPassword({
+        email: email.trim(),
+        password: password.trim(),
+      });
+      setLoading(false);
+      if (error) {
+        Alert.alert('Error', error.message);
+        return;
+      }
+    }
   };
 
   return (
@@ -56,50 +73,60 @@ export default function AuthScreen() {
           </View>
 
           {/* Form */}
-          {sent ? (
-            <View style={styles.successContainer}>
-              <Text style={styles.successIcon}>✉️</Text>
-              <Text style={styles.successTitle}>¡Revisá tu email!</Text>
-              <Text style={styles.successText}>
-                Te enviamos un enlace mágico a{'\n'}
-                <Text style={styles.emailHighlight}>{email}</Text>
+          <View style={styles.formContainer}>
+            <Text style={styles.inputLabel}>Email</Text>
+            <TextInput
+              style={styles.input}
+              placeholder='tu@email.com'
+              placeholderTextColor={colors.textMuted}
+              value={email}
+              onChangeText={setEmail}
+              autoCapitalize='none'
+              autoCorrect={false}
+              keyboardType='email-address'
+              textContentType='emailAddress'
+              editable={!loading}
+            />
+            <Text style={styles.inputLabel}>Contraseña</Text>
+            <TextInput
+              style={styles.input}
+              placeholder='••••••••'
+              placeholderTextColor={colors.textMuted}
+              value={password}
+              onChangeText={setPassword}
+              secureTextEntry
+              autoCapitalize='none'
+              autoCorrect={false}
+              textContentType={isSignUp ? 'newPassword' : 'password'}
+              editable={!loading}
+            />
+            <TouchableOpacity
+              style={[styles.button, loading && styles.buttonDisabled]}
+              onPress={handleAuth}
+              disabled={loading}
+              activeOpacity={0.8}
+            >
+              {loading ? (
+                <ActivityIndicator color={colors.background} />
+              ) : (
+                <Text style={styles.buttonText}>
+                  {isSignUp ? 'Crear cuenta' : 'Iniciar sesión'}
+                </Text>
+              )}
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.toggleButton}
+              onPress={() => setIsSignUp(!isSignUp)}
+              disabled={loading}
+            >
+              <Text style={styles.toggleText}>
+                {isSignUp
+                  ? '¿Ya tenés cuenta? Iniciá sesión'
+                  : '¿No tenés cuenta? Crear una'}
               </Text>
-              <TouchableOpacity
-                style={styles.retryButton}
-                onPress={() => setSent(false)}
-              >
-                <Text style={styles.retryText}>Usar otro email</Text>
-              </TouchableOpacity>
-            </View>
-          ) : (
-            <View style={styles.formContainer}>
-              <Text style={styles.inputLabel}>Email</Text>
-              <TextInput
-                style={styles.input}
-                placeholder='tu@email.com'
-                placeholderTextColor={colors.textMuted}
-                value={email}
-                onChangeText={setEmail}
-                autoCapitalize='none'
-                autoCorrect={false}
-                keyboardType='email-address'
-                textContentType='emailAddress'
-                editable={!loading}
-              />
-              <TouchableOpacity
-                style={[styles.button, loading && styles.buttonDisabled]}
-                onPress={handleMagicLink}
-                disabled={loading}
-                activeOpacity={0.8}
-              >
-                {loading ? (
-                  <ActivityIndicator color={colors.background} />
-                ) : (
-                  <Text style={styles.buttonText}>Enviar Magic Link</Text>
-                )}
-              </TouchableOpacity>
-            </View>
-          )}
+            </TouchableOpacity>
+          </View>
         </View>
       </KeyboardAvoidingView>
     </SafeAreaView>
@@ -172,38 +199,12 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: colors.background,
   },
-  // Success
-  successContainer: {
+  toggleButton: {
     alignItems: 'center',
-    gap: spacing.sm,
-  },
-  successIcon: {
-    fontSize: 48,
-    marginBottom: spacing.sm,
-  },
-  successTitle: {
-    ...typography.title,
-  },
-  successText: {
-    ...typography.body,
-    textAlign: 'center',
-    lineHeight: 24,
-  },
-  emailHighlight: {
-    color: colors.primary,
-    fontWeight: '600',
-  },
-  retryButton: {
-    marginTop: spacing.lg,
-    paddingHorizontal: spacing.lg,
     paddingVertical: spacing.sm,
-    borderRadius: radii.full,
-    backgroundColor: colors.surfaceElevated,
-    borderWidth: 1,
-    borderColor: colors.border,
   },
-  retryText: {
+  toggleText: {
     ...typography.caption,
-    color: colors.textSecondary,
+    color: colors.primary,
   },
 });
