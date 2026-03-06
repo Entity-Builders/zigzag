@@ -11,7 +11,7 @@ import {
   Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { supabase } from '../lib/supabase';
+import { supabase } from '@eb-packages/logic';
 import { colors, typography, spacing, radii } from '../constants/theme';
 
 export default function AuthScreen() {

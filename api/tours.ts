@@ -1,4 +1,4 @@
-import { supabase } from '../lib/supabase';
+import { supabase } from '@eb-packages/logic';
 
 export interface Tour {
   id: string;

@@ -6,7 +6,7 @@ import {
   type ReactNode,
 } from 'react';
 import type { User, Session } from '@supabase/supabase-js';
-import { supabase } from '../lib/supabase';
+import { supabase } from '@eb-packages/logic';
 
 interface AuthContextType {
   user: User | null;
@@ -28,12 +28,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Get initial session
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      setUser(session?.user ?? null);
-      setLoading(false);
-    });
+    // Get initial session — handle network errors gracefully
+    // (e.g. when local Supabase isn't running)
+    supabase.auth
+      .getSession()
+      .then(({ data: { session } }) => {
+        setSession(session);
+        setUser(session?.user ?? null);
+        setLoading(false);
+      })
+      .catch(() => {
+        // Supabase unreachable — just show auth screen
+        setLoading(false);
+      });
 
     // Listen for auth changes
     const {
