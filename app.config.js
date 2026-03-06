@@ -5,6 +5,7 @@ module.exports = createAppConfig({
   slug: 'zigzag',
   version: '1.0.0',
   projectId: '34a46d03-0540-481a-8326-ea123a330635',
+  scheme: 'zigzag',
   plugins: ['expo-router'],
   ios: {
     infoPlist: {
