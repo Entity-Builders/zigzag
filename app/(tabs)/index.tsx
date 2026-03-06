@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import {
   View,
   Text,
@@ -6,12 +6,12 @@ import {
   FlatList,
   TouchableOpacity,
   ActivityIndicator,
-  RefreshControl,
-  Animated,
+  Dimensions,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import * as Location from 'expo-location';
+import MapView, { Marker, Region } from 'react-native-maps';
 import { colors, typography, spacing, radii } from '../../constants/theme';
 import {
   fetchNearbyPlaces,
@@ -19,6 +19,8 @@ import {
   type Place,
 } from '../../api/places';
 
+const { height: SCREEN_HEIGHT } = Dimensions.get('window');
+const MAP_HEIGHT = SCREEN_HEIGHT * 0.45;
 const MIN_PLACES_THRESHOLD = 3;
 
 const PLACE_ICONS: Record<string, string> = {
@@ -38,16 +40,30 @@ const PLACE_ICONS: Record<string, string> = {
   point_of_interest: '⭐',
 };
 
+const MARKER_COLORS: Record<string, string> = {
+  park: '#34d399',
+  museum: '#818cf8',
+  restaurant: '#fb923c',
+  cafe: '#a78bfa',
+  landmark: '#f87171',
+  subway_station: '#38bdf8',
+  train_station: '#38bdf8',
+  bus_stop: '#94a3b8',
+  market: '#fbbf24',
+  theater: '#f472b6',
+  gallery: '#c084fc',
+};
+
 function formatDistance(meters: number): string {
   if (meters < 1000) return `${Math.round(meters)}m`;
   return `${(meters / 1000).toFixed(1)}km`;
 }
 
-function PlaceCard({ place }: { place: Place }) {
+function PlaceCard({ place, onPress }: { place: Place; onPress?: () => void }) {
   const icon = PLACE_ICONS[place.type] ?? '📌';
 
   return (
-    <TouchableOpacity style={styles.card} activeOpacity={0.7}>
+    <TouchableOpacity style={styles.card} activeOpacity={0.7} onPress={onPress}>
       <View style={styles.cardIcon}>
         <Text style={styles.cardEmoji}>{icon}</Text>
       </View>
@@ -73,31 +89,11 @@ function PlaceCard({ place }: { place: Place }) {
   );
 }
 
-function DiscoveringBanner({ discovered }: { discovered?: number }) {
+function DiscoveringBanner() {
   return (
     <View style={styles.discoverBanner}>
-      <View style={styles.discoverDot}>
-        <ActivityIndicator size='small' color={colors.primary} />
-      </View>
-      <View style={styles.discoverContent}>
-        <Text style={styles.discoverTitle}>Descubriendo tu zona...</Text>
-        <Text style={styles.discoverText}>
-          {discovered
-            ? `${discovered} lugares encontrados`
-            : 'Buscando lugares cercanos en OpenStreetMap'}
-        </Text>
-      </View>
-    </View>
-  );
-}
-
-function DiscoveryComplete({ count }: { count: number }) {
-  return (
-    <View style={styles.discoveryComplete}>
-      <Text style={styles.discoveryCompleteIcon}>✨</Text>
-      <Text style={styles.discoveryCompleteText}>
-        {count} lugares descubiertos en tu zona
-      </Text>
+      <ActivityIndicator size='small' color={colors.primary} />
+      <Text style={styles.discoverText}>Descubriendo tu zona...</Text>
     </View>
   );
 }
@@ -105,25 +101,21 @@ function DiscoveryComplete({ count }: { count: number }) {
 export default function ExplorarScreen() {
   const [places, setPlaces] = useState<Place[]>([]);
   const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
   const [discovering, setDiscovering] = useState(false);
-  const [discoveredCount, setDiscoveredCount] = useState<number | null>(null);
-  const [error, setError] = useState<string | null>(null);
   const [locationName, setLocationName] = useState('Buscando...');
+  const [region, setRegion] = useState<Region | null>(null);
+  const [selectedPlace, setSelectedPlace] = useState<Place | null>(null);
+  const mapRef = useRef<MapView>(null);
+  const listRef = useRef<FlatList>(null);
   const router = useRouter();
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const loadNearby = useCallback(async (isRefresh = false) => {
+  // Initial load
+  const loadInitial = useCallback(async () => {
     try {
-      if (isRefresh) setRefreshing(true);
-      else setLoading(true);
-      setError(null);
-      setDiscoveredCount(null);
-
+      setLoading(true);
       const { status } = await Location.requestForegroundPermissionsAsync();
-      if (status !== 'granted') {
-        setError('Permiso de ubicación denegado');
-        return;
-      }
+      if (status !== 'granted') return;
 
       const location = await Location.getCurrentPositionAsync({
         accuracy: Location.Accuracy.Balanced,
@@ -131,7 +123,15 @@ export default function ExplorarScreen() {
 
       const { latitude, longitude } = location.coords;
 
-      // Reverse geocode for location name
+      // Set map region
+      setRegion({
+        latitude,
+        longitude,
+        latitudeDelta: 0.02,
+        longitudeDelta: 0.02,
+      });
+
+      // Reverse geocode
       try {
         const [geo] = await Location.reverseGeocodeAsync({
           latitude,
@@ -142,117 +142,154 @@ export default function ExplorarScreen() {
             geo.district || geo.subregion || geo.city || 'Tu ubicación',
           );
         }
-      } catch {
-        setLocationName('Tu ubicación');
-      }
+      } catch {}
 
-      // Step 1: Try cached places first
-      const cached = await fetchNearbyPlaces(latitude, longitude, 5000);
+      // Fetch nearby
+      const nearby = await fetchNearbyPlaces(latitude, longitude, 5000);
+      setPlaces(nearby);
 
-      if (cached.length >= MIN_PLACES_THRESHOLD) {
-        // Enough cached places — show them
-        setPlaces(cached);
-      } else {
-        // Not enough — trigger on-demand discovery
-        setPlaces(cached); // show what we have
-        setLoading(false);
+      // If not enough, trigger discovery
+      if (nearby.length < MIN_PLACES_THRESHOLD) {
         setDiscovering(true);
-
         try {
           const result = await discoverPlaces(latitude, longitude, 3000);
           setPlaces(result.places);
-          if (!result.cached && result.discovered) {
-            setDiscoveredCount(result.discovered);
-            // Clear the "discovered" badge after 4 seconds
-            setTimeout(() => setDiscoveredCount(null), 4000);
-          }
-        } catch (discoverErr: any) {
-          console.warn('Discovery failed:', discoverErr.message);
-          // Keep showing whatever cached places we had
-        } finally {
-          setDiscovering(false);
-        }
+        } catch {}
+        setDiscovering(false);
       }
-    } catch (err: any) {
-      setError(err.message || 'Error cargando lugares');
+    } catch (err) {
+      console.error('Load error:', err);
     } finally {
       setLoading(false);
-      setRefreshing(false);
     }
   }, []);
 
   useEffect(() => {
-    loadNearby();
-  }, [loadNearby]);
+    loadInitial();
+  }, [loadInitial]);
+
+  // When user pans the map, refetch places for new center
+  const onRegionChangeComplete = useCallback((newRegion: Region) => {
+    setRegion(newRegion);
+
+    // Debounce — wait 800ms after user stops panning
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(async () => {
+      const { latitude, longitude, latitudeDelta } = newRegion;
+      // Approximate radius from latitudeDelta
+      const radiusMeters = Math.round(latitudeDelta * 111000);
+
+      try {
+        const nearby = await fetchNearbyPlaces(
+          latitude,
+          longitude,
+          radiusMeters,
+        );
+        setPlaces(nearby);
+
+        // Discover if needed
+        if (nearby.length < MIN_PLACES_THRESHOLD) {
+          setDiscovering(true);
+          try {
+            const result = await discoverPlaces(
+              latitude,
+              longitude,
+              radiusMeters,
+            );
+            setPlaces(result.places);
+          } catch {}
+          setDiscovering(false);
+        }
+      } catch {}
+    }, 800);
+  }, []);
+
+  // Center map on a place when tapped in list
+  const focusPlace = useCallback((place: Place) => {
+    setSelectedPlace(place);
+    mapRef.current?.animateToRegion(
+      {
+        latitude: place.latitude,
+        longitude: place.longitude,
+        latitudeDelta: 0.005,
+        longitudeDelta: 0.005,
+      },
+      300,
+    );
+  }, []);
+
+  if (loading) {
+    return (
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size='large' color={colors.primary} />
+        <Text style={styles.loadingText}>Cargando mapa...</Text>
+      </View>
+    );
+  }
 
   return (
-    <SafeAreaView style={styles.container}>
-      <View style={styles.header}>
-        <Text style={styles.title}>Explorar</Text>
-        <Text style={styles.subtitle}>
-          📍 {locationName} · {places.length} lugares cerca
-        </Text>
-      </View>
+    <View style={styles.container}>
+      {/* Map */}
+      <MapView
+        ref={mapRef}
+        style={styles.map}
+        initialRegion={region ?? undefined}
+        onRegionChangeComplete={onRegionChangeComplete}
+        showsUserLocation
+        showsMyLocationButton
+        userInterfaceStyle='dark'
+        mapType='mutedStandard'
+      >
+        {places.map((place) => (
+          <Marker
+            key={place.id}
+            coordinate={{
+              latitude: place.latitude,
+              longitude: place.longitude,
+            }}
+            title={place.name}
+            description={`${place.type.replace(/_/g, ' ')}${place.distance_meters ? ' · ' + formatDistance(place.distance_meters) : ''}`}
+            pinColor={MARKER_COLORS[place.type] || colors.primary}
+            onPress={() => setSelectedPlace(place)}
+          />
+        ))}
+      </MapView>
 
-      {/* Discovery UX */}
-      {discovering && <DiscoveringBanner />}
-      {discoveredCount && <DiscoveryComplete count={discoveredCount} />}
+      {/* List overlay */}
+      <SafeAreaView edges={['bottom']} style={styles.listContainer}>
+        {/* Header bar */}
+        <View style={styles.listHeader}>
+          <View style={styles.listHandle} />
+          <View style={styles.listHeaderContent}>
+            <Text style={styles.listTitle}>
+              📍 {locationName} · {places.length} lugares
+            </Text>
+            {discovering && <DiscoveringBanner />}
+          </View>
+        </View>
 
-      {loading ? (
-        <View style={styles.centered}>
-          <ActivityIndicator size='large' color={colors.primary} />
-          <Text style={styles.loadingText}>Buscando lugares cercanos...</Text>
-        </View>
-      ) : error ? (
-        <View style={styles.centered}>
-          <Text style={styles.errorIcon}>⚠️</Text>
-          <Text style={styles.errorText}>{error}</Text>
-          <TouchableOpacity
-            style={styles.retryButton}
-            onPress={() => loadNearby()}
-          >
-            <Text style={styles.retryText}>Reintentar</Text>
-          </TouchableOpacity>
-        </View>
-      ) : places.length === 0 && !discovering ? (
-        <View style={styles.centered}>
-          <Text style={styles.emptyIcon}>🗺️</Text>
-          <Text style={styles.emptyText}>
-            No se encontraron lugares en tu zona
-          </Text>
-          <TouchableOpacity
-            style={styles.retryButton}
-            onPress={() => loadNearby()}
-          >
-            <Text style={styles.retryText}>Buscar de nuevo</Text>
-          </TouchableOpacity>
-        </View>
-      ) : (
+        {/* Places list */}
         <FlatList
+          ref={listRef}
           data={places}
           keyExtractor={(item) => item.id}
-          renderItem={({ item }) => <PlaceCard place={item} />}
+          renderItem={({ item }) => (
+            <PlaceCard place={item} onPress={() => focusPlace(item)} />
+          )}
           contentContainerStyle={styles.list}
           showsVerticalScrollIndicator={false}
-          refreshControl={
-            <RefreshControl
-              refreshing={refreshing}
-              onRefresh={() => loadNearby(true)}
-              tintColor={colors.primary}
-            />
-          }
         />
-      )}
 
-      {/* Floating Generate Button */}
-      <TouchableOpacity
-        style={styles.fab}
-        onPress={() => router.push('/generate')}
-        activeOpacity={0.85}
-      >
-        <Text style={styles.fabText}>⚡ Generar Tour</Text>
-      </TouchableOpacity>
-    </SafeAreaView>
+        {/* FAB */}
+        <TouchableOpacity
+          style={styles.fab}
+          onPress={() => router.push('/generate')}
+          activeOpacity={0.85}
+        >
+          <Text style={styles.fabText}>⚡ Generar Tour</Text>
+        </TouchableOpacity>
+      </SafeAreaView>
+    </View>
   );
 }
 
@@ -261,79 +298,69 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: colors.background,
   },
-  header: {
+  loadingContainer: {
+    flex: 1,
+    backgroundColor: colors.background,
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: spacing.md,
+  },
+  loadingText: {
+    ...typography.body,
+  },
+  // Map
+  map: {
+    width: '100%',
+    height: MAP_HEIGHT,
+  },
+  // List container
+  listContainer: {
+    flex: 1,
+    backgroundColor: colors.background,
+    borderTopLeftRadius: radii.xl,
+    borderTopRightRadius: radii.xl,
+    marginTop: -radii.xl,
+  },
+  listHeader: {
+    paddingTop: spacing.sm,
     paddingHorizontal: spacing.lg,
-    paddingTop: spacing.md,
-    paddingBottom: spacing.md,
+    paddingBottom: spacing.sm,
   },
-  title: {
-    ...typography.largeTitle,
+  listHandle: {
+    width: 36,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: colors.borderLight,
+    alignSelf: 'center',
+    marginBottom: spacing.sm,
   },
-  subtitle: {
+  listHeaderContent: {
+    gap: spacing.xs,
+  },
+  listTitle: {
     ...typography.caption,
-    marginTop: spacing.xs,
+    fontSize: 13,
   },
-  // Discovery Banner
+  // Discovery
   discoverBanner: {
     flexDirection: 'row',
     alignItems: 'center',
+    gap: spacing.sm,
     backgroundColor: colors.primarySoft,
-    marginHorizontal: spacing.lg,
-    marginBottom: spacing.md,
-    borderRadius: radii.lg,
-    padding: spacing.md,
-    gap: spacing.md,
-    borderWidth: 1,
-    borderColor: 'rgba(0, 212, 255, 0.2)',
-  },
-  discoverDot: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: colors.surface,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  discoverContent: {
-    flex: 1,
-    gap: 2,
-  },
-  discoverTitle: {
-    ...typography.headline,
-    fontSize: 14,
-    color: colors.primary,
+    borderRadius: radii.md,
+    paddingVertical: spacing.xs,
+    paddingHorizontal: spacing.md,
+    alignSelf: 'flex-start',
   },
   discoverText: {
     ...typography.caption,
+    color: colors.primary,
     fontSize: 12,
-  },
-  // Discovery Complete
-  discoveryComplete: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: colors.successSoft,
-    marginHorizontal: spacing.lg,
-    marginBottom: spacing.md,
-    borderRadius: radii.md,
-    paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.md,
-    gap: spacing.sm,
-    borderWidth: 1,
-    borderColor: 'rgba(52, 211, 153, 0.2)',
-  },
-  discoveryCompleteIcon: {
-    fontSize: 14,
-  },
-  discoveryCompleteText: {
-    ...typography.caption,
-    color: colors.success,
-    fontWeight: '600',
   },
   // List
   list: {
     paddingHorizontal: spacing.lg,
-    paddingBottom: spacing.xxl,
+    paddingBottom: 80,
     gap: spacing.sm,
   },
   // Card
@@ -348,15 +375,15 @@ const styles = StyleSheet.create({
     gap: spacing.md,
   },
   cardIcon: {
-    width: 48,
-    height: 48,
+    width: 44,
+    height: 44,
     borderRadius: radii.md,
     backgroundColor: colors.surfaceElevated,
     justifyContent: 'center',
     alignItems: 'center',
   },
   cardEmoji: {
-    fontSize: 22,
+    fontSize: 20,
   },
   cardContent: {
     flex: 1,
@@ -364,7 +391,7 @@ const styles = StyleSheet.create({
   },
   cardName: {
     ...typography.headline,
-    fontSize: 16,
+    fontSize: 15,
   },
   cardMeta: {
     flexDirection: 'row',
@@ -374,54 +401,18 @@ const styles = StyleSheet.create({
   cardType: {
     ...typography.caption,
     textTransform: 'capitalize',
+    fontSize: 12,
   },
   cardDistance: {
     ...typography.caption,
     color: colors.primary,
     fontWeight: '700',
+    fontSize: 12,
   },
   cardAddress: {
     ...typography.caption,
-    fontSize: 12,
-    marginTop: 2,
-  },
-  // States
-  centered: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    gap: spacing.md,
-    paddingHorizontal: spacing.xl,
-  },
-  loadingText: {
-    ...typography.body,
-    marginTop: spacing.sm,
-  },
-  errorIcon: {
-    fontSize: 48,
-  },
-  errorText: {
-    ...typography.body,
-    textAlign: 'center',
-  },
-  retryButton: {
-    backgroundColor: colors.primarySoft,
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.sm,
-    borderRadius: radii.full,
-    borderWidth: 1,
-    borderColor: colors.primary,
-  },
-  retryText: {
-    ...typography.caption,
-    color: colors.primary,
-  },
-  emptyIcon: {
-    fontSize: 64,
-  },
-  emptyText: {
-    ...typography.body,
-    textAlign: 'center',
+    fontSize: 11,
+    marginTop: 1,
   },
   // FAB
   fab: {
@@ -431,7 +422,7 @@ const styles = StyleSheet.create({
     left: spacing.lg,
     backgroundColor: colors.primary,
     borderRadius: radii.lg,
-    paddingVertical: 16,
+    paddingVertical: 14,
     alignItems: 'center',
     shadowColor: colors.primary,
     shadowOffset: { width: 0, height: 4 },
