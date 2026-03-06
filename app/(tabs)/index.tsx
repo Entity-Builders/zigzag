@@ -7,22 +7,34 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   RefreshControl,
+  Animated,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useRouter } from 'expo-router';
 import * as Location from 'expo-location';
 import { colors, typography, spacing, radii } from '../../constants/theme';
-import { fetchNearbyPlaces, type Place } from '../../api/places';
+import {
+  fetchNearbyPlaces,
+  discoverPlaces,
+  type Place,
+} from '../../api/places';
+
+const MIN_PLACES_THRESHOLD = 3;
 
 const PLACE_ICONS: Record<string, string> = {
   park: '🌳',
   museum: '🏛️',
   restaurant: '🍽️',
+  cafe: '☕',
+  bar: '🍸',
   landmark: '📍',
   bus_stop: '🚌',
   subway_station: '🚇',
+  train_station: '🚂',
   market: '🛒',
-  cafe: '☕',
-  bar: '🍸',
+  theater: '🎭',
+  gallery: '🎨',
+  viewpoint: '👀',
   point_of_interest: '⭐',
 };
 
@@ -61,18 +73,51 @@ function PlaceCard({ place }: { place: Place }) {
   );
 }
 
+function DiscoveringBanner({ discovered }: { discovered?: number }) {
+  return (
+    <View style={styles.discoverBanner}>
+      <View style={styles.discoverDot}>
+        <ActivityIndicator size='small' color={colors.primary} />
+      </View>
+      <View style={styles.discoverContent}>
+        <Text style={styles.discoverTitle}>Descubriendo tu zona...</Text>
+        <Text style={styles.discoverText}>
+          {discovered
+            ? `${discovered} lugares encontrados`
+            : 'Buscando lugares cercanos en OpenStreetMap'}
+        </Text>
+      </View>
+    </View>
+  );
+}
+
+function DiscoveryComplete({ count }: { count: number }) {
+  return (
+    <View style={styles.discoveryComplete}>
+      <Text style={styles.discoveryCompleteIcon}>✨</Text>
+      <Text style={styles.discoveryCompleteText}>
+        {count} lugares descubiertos en tu zona
+      </Text>
+    </View>
+  );
+}
+
 export default function ExplorarScreen() {
   const [places, setPlaces] = useState<Place[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [discovering, setDiscovering] = useState(false);
+  const [discoveredCount, setDiscoveredCount] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [locationName, setLocationName] = useState('Buscando...');
+  const router = useRouter();
 
   const loadNearby = useCallback(async (isRefresh = false) => {
     try {
       if (isRefresh) setRefreshing(true);
       else setLoading(true);
       setError(null);
+      setDiscoveredCount(null);
 
       const { status } = await Location.requestForegroundPermissionsAsync();
       if (status !== 'granted') {
@@ -101,8 +146,33 @@ export default function ExplorarScreen() {
         setLocationName('Tu ubicación');
       }
 
-      const nearby = await fetchNearbyPlaces(latitude, longitude, 5000);
-      setPlaces(nearby);
+      // Step 1: Try cached places first
+      const cached = await fetchNearbyPlaces(latitude, longitude, 5000);
+
+      if (cached.length >= MIN_PLACES_THRESHOLD) {
+        // Enough cached places — show them
+        setPlaces(cached);
+      } else {
+        // Not enough — trigger on-demand discovery
+        setPlaces(cached); // show what we have
+        setLoading(false);
+        setDiscovering(true);
+
+        try {
+          const result = await discoverPlaces(latitude, longitude, 3000);
+          setPlaces(result.places);
+          if (!result.cached && result.discovered) {
+            setDiscoveredCount(result.discovered);
+            // Clear the "discovered" badge after 4 seconds
+            setTimeout(() => setDiscoveredCount(null), 4000);
+          }
+        } catch (discoverErr: any) {
+          console.warn('Discovery failed:', discoverErr.message);
+          // Keep showing whatever cached places we had
+        } finally {
+          setDiscovering(false);
+        }
+      }
     } catch (err: any) {
       setError(err.message || 'Error cargando lugares');
     } finally {
@@ -124,6 +194,10 @@ export default function ExplorarScreen() {
         </Text>
       </View>
 
+      {/* Discovery UX */}
+      {discovering && <DiscoveringBanner />}
+      {discoveredCount && <DiscoveryComplete count={discoveredCount} />}
+
       {loading ? (
         <View style={styles.centered}>
           <ActivityIndicator size='large' color={colors.primary} />
@@ -140,12 +214,18 @@ export default function ExplorarScreen() {
             <Text style={styles.retryText}>Reintentar</Text>
           </TouchableOpacity>
         </View>
-      ) : places.length === 0 ? (
+      ) : places.length === 0 && !discovering ? (
         <View style={styles.centered}>
           <Text style={styles.emptyIcon}>🗺️</Text>
           <Text style={styles.emptyText}>
-            No hay lugares registrados cerca tuyo
+            No se encontraron lugares en tu zona
           </Text>
+          <TouchableOpacity
+            style={styles.retryButton}
+            onPress={() => loadNearby()}
+          >
+            <Text style={styles.retryText}>Buscar de nuevo</Text>
+          </TouchableOpacity>
         </View>
       ) : (
         <FlatList
@@ -163,6 +243,15 @@ export default function ExplorarScreen() {
           }
         />
       )}
+
+      {/* Floating Generate Button */}
+      <TouchableOpacity
+        style={styles.fab}
+        onPress={() => router.push('/generate')}
+        activeOpacity={0.85}
+      >
+        <Text style={styles.fabText}>⚡ Generar Tour</Text>
+      </TouchableOpacity>
     </SafeAreaView>
   );
 }
@@ -183,6 +272,63 @@ const styles = StyleSheet.create({
   subtitle: {
     ...typography.caption,
     marginTop: spacing.xs,
+  },
+  // Discovery Banner
+  discoverBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.primarySoft,
+    marginHorizontal: spacing.lg,
+    marginBottom: spacing.md,
+    borderRadius: radii.lg,
+    padding: spacing.md,
+    gap: spacing.md,
+    borderWidth: 1,
+    borderColor: 'rgba(0, 212, 255, 0.2)',
+  },
+  discoverDot: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: colors.surface,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  discoverContent: {
+    flex: 1,
+    gap: 2,
+  },
+  discoverTitle: {
+    ...typography.headline,
+    fontSize: 14,
+    color: colors.primary,
+  },
+  discoverText: {
+    ...typography.caption,
+    fontSize: 12,
+  },
+  // Discovery Complete
+  discoveryComplete: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.successSoft,
+    marginHorizontal: spacing.lg,
+    marginBottom: spacing.md,
+    borderRadius: radii.md,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
+    gap: spacing.sm,
+    borderWidth: 1,
+    borderColor: 'rgba(52, 211, 153, 0.2)',
+  },
+  discoveryCompleteIcon: {
+    fontSize: 14,
+  },
+  discoveryCompleteText: {
+    ...typography.caption,
+    color: colors.success,
+    fontWeight: '600',
   },
   // List
   list: {
@@ -276,5 +422,26 @@ const styles = StyleSheet.create({
   emptyText: {
     ...typography.body,
     textAlign: 'center',
+  },
+  // FAB
+  fab: {
+    position: 'absolute',
+    bottom: spacing.lg,
+    right: spacing.lg,
+    left: spacing.lg,
+    backgroundColor: colors.primary,
+    borderRadius: radii.lg,
+    paddingVertical: 16,
+    alignItems: 'center',
+    shadowColor: colors.primary,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 8,
+  },
+  fabText: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: colors.background,
   },
 });

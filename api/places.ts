@@ -37,3 +37,30 @@ export async function fetchPlaceById(id: string): Promise<Place> {
   if (error) throw error;
   return data;
 }
+
+export interface DiscoveryResult {
+  places: Place[];
+  cached: boolean;
+  discovered?: number;
+  scanned_at?: string;
+}
+
+/**
+ * Discover places on-demand via edge function.
+ * If the zone was already scanned, returns cached results.
+ * Otherwise, queries Overpass API server-side and caches the results.
+ */
+export async function discoverPlaces(
+  lat: number,
+  lng: number,
+  radiusMeters: number = 2000,
+): Promise<DiscoveryResult> {
+  const { data, error } = await supabase.functions.invoke(
+    'zigzag-discover-places',
+    {
+      body: { lat, lng, radius_meters: radiusMeters },
+    },
+  );
+  if (error) throw error;
+  return data as DiscoveryResult;
+}
