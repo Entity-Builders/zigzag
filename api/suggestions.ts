@@ -15,6 +15,7 @@ export interface SuggestedActivity {
 export interface SuggestionsMeta {
   placesFound: number;
   generatedAt: string;
+  cached: boolean;
   temporal: {
     momentOfDay: string;
     dayOfWeek: string;
@@ -38,6 +39,7 @@ export async function fetchSuggestedActivities(
     radius?: number;
     timezone?: string;
     count?: number;
+    forceRefresh?: boolean;
   },
 ): Promise<SuggestionsResponse> {
   const { data, error } = await supabase.functions.invoke(
@@ -49,6 +51,7 @@ export async function fetchSuggestedActivities(
         radius: options?.radius ?? 2000,
         timezone: options?.timezone,
         count: options?.count ?? 6,
+        forceRefresh: options?.forceRefresh ?? false,
       },
     },
   );

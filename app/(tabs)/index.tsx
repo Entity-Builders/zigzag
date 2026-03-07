@@ -182,6 +182,7 @@ export default function ForYouScreen() {
       const response = await fetchSuggestedActivities(latitude, longitude, {
         radius: 2000,
         count: 6,
+        forceRefresh: isRefresh,
       });
 
       if (response.meta.placesFound === 0) {
