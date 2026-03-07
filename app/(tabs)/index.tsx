@@ -38,7 +38,7 @@ function formatDuration(minutes: number): string {
 function openNavigation(lat: number, lng: number, label: string) {
   const encodedLabel = encodeURIComponent(label);
   const appleMapsUrl = `maps:0,0?q=${encodedLabel}&ll=${lat},${lng}`;
-  const googleMapsUrl = `https://www.google.com/maps/search/?api=1&query=${lat},${lng}`;
+  const googleMapsUrl = `https://www.google.com/maps/search/?api=1&query=${encodedLabel}&center=${lat},${lng}`;
 
   const options: { text: string; onPress: () => void }[] = [];
 
