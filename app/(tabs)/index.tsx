@@ -14,6 +14,7 @@ import {
   Animated,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useRouter } from 'expo-router';
 import * as Location from 'expo-location';
 import MapView, { Marker, Circle, Region } from 'react-native-maps';
 import { colors, typography, spacing, radii } from '../../constants/theme';
@@ -78,6 +79,8 @@ function ActivityCard({
   isSelected: boolean;
   onPress: () => void;
 }) {
+  const router = useRouter();
+
   return (
     <TouchableOpacity
       style={[styles.card, isSelected && styles.cardSelected]}
@@ -131,6 +134,18 @@ function ActivityCard({
             ))
           : null}
       </View>
+
+      <TouchableOpacity
+        style={styles.detailLink}
+        onPress={() =>
+          router.push({
+            pathname: '/activity/[id]',
+            params: { id: activity.id, data: JSON.stringify(activity) },
+          })
+        }
+      >
+        <Text style={styles.detailLinkText}>Ver detalle →</Text>
+      </TouchableOpacity>
     </TouchableOpacity>
   );
 }
@@ -993,5 +1008,15 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: '600',
     color: colors.primary,
+  },
+  detailLink: {
+    marginTop: spacing.sm,
+    alignSelf: 'flex-end',
+    paddingVertical: spacing.xs,
+  },
+  detailLinkText: {
+    ...typography.caption,
+    color: colors.primary,
+    fontWeight: '600',
   },
 });

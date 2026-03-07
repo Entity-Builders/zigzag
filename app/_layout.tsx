@@ -38,6 +38,7 @@ function RootNavigator() {
         <Stack.Screen name='auth' />
         <Stack.Screen name='generate' options={{ presentation: 'modal' }} />
         <Stack.Screen name='tour/[id]' />
+        <Stack.Screen name='activity/[id]' />
       </Stack>
     </>
   );
