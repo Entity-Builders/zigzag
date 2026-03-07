@@ -78,8 +78,6 @@ function ActivityCard({
   isSelected: boolean;
   onPress: () => void;
 }) {
-  const firstPlace = activity.places?.[0];
-
   return (
     <TouchableOpacity
       style={[styles.card, isSelected && styles.cardSelected]}
@@ -121,16 +119,17 @@ function ActivityCard({
       ) : null}
 
       <View style={styles.cardFooter}>
-        {firstPlace ? (
-          <TouchableOpacity
-            style={styles.navButton}
-            onPress={() =>
-              openNavigation(firstPlace.lat, firstPlace.lng, firstPlace.name)
-            }
-          >
-            <Text style={styles.navButtonText}>📍 Cómo llego</Text>
-          </TouchableOpacity>
-        ) : null}
+        {activity.places?.length > 0
+          ? activity.places.map((place, idx) => (
+              <TouchableOpacity
+                key={place.id || idx}
+                style={[styles.navButton, idx > 0 && { marginTop: 6 }]}
+                onPress={() => openNavigation(place.lat, place.lng, place.name)}
+              >
+                <Text style={styles.navButtonText}>📍 {place.name}</Text>
+              </TouchableOpacity>
+            ))
+          : null}
       </View>
     </TouchableOpacity>
   );
@@ -901,7 +900,8 @@ const styles = StyleSheet.create({
   },
   cardFooter: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
+    flexWrap: 'wrap',
+    gap: 6,
     alignItems: 'center',
   },
   navButton: {
