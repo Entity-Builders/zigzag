@@ -362,7 +362,17 @@ export default function ForYouScreen() {
   // ─── Focus on activity ───
   const focusActivity = useCallback((activity: SuggestedActivity) => {
     setSelectedActivity(activity);
-    if (activity.places.length > 0) {
+    if (activity.places.length > 1) {
+      // Multiple places → fit all of them into the visible map area
+      const coordinates = activity.places.map((p) => ({
+        latitude: p.lat,
+        longitude: p.lng,
+      }));
+      mapRef.current?.fitToCoordinates(coordinates, {
+        edgePadding: { top: 60, right: 60, bottom: 60, left: 60 },
+        animated: true,
+      });
+    } else if (activity.places.length === 1) {
       const place = activity.places[0];
       mapRef.current?.animateToRegion(
         {
