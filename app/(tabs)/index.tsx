@@ -8,6 +8,9 @@ import {
   ActivityIndicator,
   Dimensions,
   RefreshControl,
+  Linking,
+  Platform,
+  Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as Location from 'expo-location';
@@ -30,6 +33,31 @@ function formatDuration(minutes: number): string {
   const h = Math.floor(minutes / 60);
   const m = minutes % 60;
   return m > 0 ? `${h}h ${m}min` : `${h}h`;
+}
+
+function openNavigation(lat: number, lng: number, label: string) {
+  const encodedLabel = encodeURIComponent(label);
+  const appleMapsUrl = `maps:0,0?q=${encodedLabel}&ll=${lat},${lng}`;
+  const googleMapsUrl = `https://www.google.com/maps/search/?api=1&query=${lat},${lng}`;
+
+  const options: { text: string; onPress: () => void }[] = [];
+
+  if (Platform.OS === 'ios') {
+    options.push({
+      text: '🍎 Apple Maps',
+      onPress: () => Linking.openURL(appleMapsUrl),
+    });
+  }
+
+  options.push({
+    text: '🗺️ Google Maps',
+    onPress: () => Linking.openURL(googleMapsUrl),
+  });
+
+  Alert.alert('¿Cómo querés llegar?', label, [
+    ...options,
+    { text: 'Cancelar', onPress: () => {}, style: 'cancel' as const },
+  ]);
 }
 
 function ActivityCard({
@@ -75,16 +103,31 @@ function ActivityCard({
       {/* Time relevance */}
       <Text style={styles.cardTimeRelevance}>{activity.timeRelevance}</Text>
 
-      {/* Tags */}
-      {activity.tags?.length > 0 && (
-        <View style={styles.tagRow}>
-          {activity.tags.slice(0, 4).map((tag) => (
-            <View key={tag} style={styles.tag}>
-              <Text style={styles.tagText}>{tag}</Text>
-            </View>
-          ))}
-        </View>
-      )}
+      {/* Tags + Navigate */}
+      <View style={styles.cardFooter}>
+        {activity.tags?.length > 0 && (
+          <View style={styles.tagRow}>
+            {activity.tags.slice(0, 3).map((tag) => (
+              <View key={tag} style={styles.tag}>
+                <Text style={styles.tagText}>{tag}</Text>
+              </View>
+            ))}
+          </View>
+        )}
+        {activity.places.length > 0 && (
+          <TouchableOpacity
+            style={styles.navButton}
+            onPress={(e) => {
+              e.stopPropagation();
+              const p = activity.places[0];
+              openNavigation(p.lat, p.lng, p.name);
+            }}
+            activeOpacity={0.7}
+          >
+            <Text style={styles.navButtonText}>📍 Cómo llego</Text>
+          </TouchableOpacity>
+        )}
+      </View>
     </TouchableOpacity>
   );
 }
@@ -483,6 +526,24 @@ const styles = StyleSheet.create({
     fontSize: 10,
     textTransform: 'uppercase',
     letterSpacing: 0.5,
+  },
+  cardFooter: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  navButton: {
+    backgroundColor: colors.primarySoft,
+    borderRadius: radii.full,
+    paddingVertical: 6,
+    paddingHorizontal: spacing.md,
+    marginLeft: 'auto',
+  },
+  navButtonText: {
+    ...typography.caption,
+    fontSize: 12,
+    color: colors.primary,
+    fontWeight: '700',
   },
   // Empty
   emptyContainer: {
