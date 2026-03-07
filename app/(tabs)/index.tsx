@@ -26,7 +26,13 @@ import { discoverPlaces } from '../../api/places';
 
 const { height: SCREEN_HEIGHT, width: SCREEN_WIDTH } = Dimensions.get('window');
 const MAP_HEIGHT_MINI = SCREEN_HEIGHT * 0.28;
-const SEARCH_RADIUS = 2000; // meters
+
+const RADIUS_OPTIONS = [
+  { label: '500m', value: 500 },
+  { label: '1km', value: 1000 },
+  { label: '2km', value: 2000 },
+  { label: '5km', value: 5000 },
+];
 
 const PRICE_LABELS = ['Gratis', '$', '$$', '$$$'];
 
@@ -191,6 +197,7 @@ export default function ForYouScreen() {
     lng: number;
   } | null>(null);
   const [initializing, setInitializing] = useState(true);
+  const [searchRadius, setSearchRadius] = useState(2000);
 
   const mapRef = useRef<MapView>(null);
   const [selectedActivity, setSelectedActivity] =
@@ -251,7 +258,7 @@ export default function ForYouScreen() {
         } catch {}
 
         const response = await fetchSuggestedActivities(lat, lng, {
-          radius: SEARCH_RADIUS,
+          radius: searchRadius,
           count: 6,
           forceRefresh: isRefresh,
         });
@@ -271,7 +278,7 @@ export default function ForYouScreen() {
         setRefreshing(false);
       }
     },
-    [],
+    [searchRadius],
   );
 
   // ─── Confirm location from picker ───
@@ -283,20 +290,12 @@ export default function ForYouScreen() {
 
   // ─── Go back to picker ───
   const handleRelocate = useCallback(() => {
+    // Update mapCenter so the picker map renders at the right spot
+    if (searchCoords) {
+      setMapCenter({ lat: searchCoords.lat, lng: searchCoords.lng });
+    }
     setMode('picker');
     setSelectedActivity(null);
-    // Animate map to current search coords
-    if (searchCoords && mapRef.current) {
-      mapRef.current.animateToRegion(
-        {
-          latitude: searchCoords.lat,
-          longitude: searchCoords.lng,
-          latitudeDelta: 0.02,
-          longitudeDelta: 0.02,
-        },
-        300,
-      );
-    }
   }, [searchCoords]);
 
   // ─── Refresh ───
@@ -311,7 +310,7 @@ export default function ForYouScreen() {
     if (!searchCoords) return;
     setDiscovering(true);
     try {
-      await discoverPlaces(searchCoords.lat, searchCoords.lng, SEARCH_RADIUS);
+      await discoverPlaces(searchCoords.lat, searchCoords.lng, searchRadius);
       await searchAt(searchCoords.lat, searchCoords.lng, true);
     } catch (err) {
       console.error('Discovery error:', err);
@@ -388,7 +387,7 @@ export default function ForYouScreen() {
                 latitude: mapCenter.lat,
                 longitude: mapCenter.lng,
               }}
-              radius={SEARCH_RADIUS}
+              radius={searchRadius}
               fillColor='rgba(99, 102, 241, 0.08)'
               strokeColor='rgba(99, 102, 241, 0.3)'
               strokeWidth={1.5}
@@ -408,11 +407,33 @@ export default function ForYouScreen() {
             <View style={styles.pickerTextContent}>
               <Text style={styles.pickerTitle}>¿Dónde exploramos?</Text>
               <Text style={styles.pickerSubtitle}>
-                Mové el mapa para elegir la zona · Radio:{' '}
-                {SEARCH_RADIUS >= 1000
-                  ? `${SEARCH_RADIUS / 1000}km`
-                  : `${SEARCH_RADIUS}m`}
+                Mové el mapa para elegir la zona
               </Text>
+            </View>
+
+            {/* Radius chips */}
+            <View style={styles.radiusRow}>
+              <Text style={styles.radiusLabel}>Radio:</Text>
+              {RADIUS_OPTIONS.map((opt) => (
+                <TouchableOpacity
+                  key={opt.value}
+                  style={[
+                    styles.radiusChip,
+                    searchRadius === opt.value && styles.radiusChipActive,
+                  ]}
+                  onPress={() => setSearchRadius(opt.value)}
+                  activeOpacity={0.7}
+                >
+                  <Text
+                    style={[
+                      styles.radiusChipText,
+                      searchRadius === opt.value && styles.radiusChipTextActive,
+                    ]}
+                  >
+                    {opt.label}
+                  </Text>
+                </TouchableOpacity>
+              ))}
             </View>
             <TouchableOpacity
               style={styles.confirmButton}
@@ -459,7 +480,7 @@ export default function ForYouScreen() {
                 latitude: searchCoords.lat,
                 longitude: searchCoords.lng,
               }}
-              radius={SEARCH_RADIUS}
+              radius={searchRadius}
               fillColor='rgba(99, 102, 241, 0.06)'
               strokeColor='rgba(99, 102, 241, 0.2)'
               strokeWidth={1}
@@ -622,6 +643,41 @@ const styles = StyleSheet.create({
     fontSize: 17,
     fontWeight: '800',
     color: '#fff',
+  },
+  // ─── Radius selector ───
+  radiusRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+  },
+  radiusLabel: {
+    ...typography.caption,
+    fontSize: 13,
+    fontWeight: '600',
+    color: colors.textSecondary,
+    marginRight: 4,
+  },
+  radiusChip: {
+    paddingVertical: 6,
+    paddingHorizontal: 14,
+    borderRadius: radii.full,
+    backgroundColor: colors.surfaceElevated,
+    borderWidth: 1.5,
+    borderColor: 'transparent',
+  },
+  radiusChipActive: {
+    backgroundColor: colors.primarySoft,
+    borderColor: colors.primary,
+  },
+  radiusChipText: {
+    ...typography.caption,
+    fontSize: 13,
+    fontWeight: '600',
+    color: colors.textSecondary,
+  },
+  radiusChipTextActive: {
+    color: colors.primary,
+    fontWeight: '800',
   },
   // ─── Results Mode ───
   miniMap: {
