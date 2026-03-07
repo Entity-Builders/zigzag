@@ -1,0 +1,74 @@
+{
+  "cli": {
+    "version": ">= 7.0.0",
+    "appVersionSource": "remote"
+  },
+  "build": {
+    "base": {
+      "cache": {
+        "key": "zigzag-{{ checksum 'yarn.lock' }}",
+        "paths": ["node_modules"]
+      }
+    },
+    "development": {
+      "extends": "base",
+      "developmentClient": true,
+      "distribution": "internal",
+      "channel": "development",
+      "node": "22.12.0",
+      "env": {
+        "EXPO_PUBLIC_GOOGLE_MAPS_API_KEY": "AIzaSyA9nKk8SB6GVvUZmhAhRCLJzT8iNVgZC48",
+        "APP_ENV": "development",
+        "EXPO_PUBLIC_SUPABASE_URL": "http://localhost:54321",
+        "EXPO_PUBLIC_SUPABASE_ANON_KEY": "dummy_anon_key"
+      }
+    },
+    "development-simulator": {
+      "extends": "base",
+      "developmentClient": true,
+      "distribution": "internal",
+      "channel": "development",
+      "node": "22.12.0",
+      "ios": {
+        "simulator": true
+      },
+      "env": {
+        "APP_ENV": "development",
+        "EXPO_PUBLIC_SUPABASE_URL": "http://127.0.0.1:54321",
+        "EXPO_PUBLIC_SUPABASE_ANON_KEY": "dummy_anon_key"
+      }
+    },
+    "preview": {
+      "extends": "base",
+      "distribution": "internal",
+      "channel": "preview",
+      "node": "22.12.0",
+      "env": {
+        "APP_ENV": "preview",
+        "EXPO_PUBLIC_SUPABASE_URL": "https://xfcvuzcxvdpzkqpnahyx.supabase.co",
+        "EXPO_PUBLIC_SUPABASE_ANON_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhmY3Z1emN4dmRwemtxcG5haHl4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzIzMTg5OTksImV4cCI6MjA4Nzg5NDk5OX0.jCE4ssgXYFG1TF7ylP2F_rdsqKE_MorN6jxiLJ3sj8U",
+        "EXPO_PUBLIC_GOOGLE_MAPS_API_KEY": "AIzaSyA9nKk8SB6GVvUZmhAhRCLJzT8iNVgZC48",
+        "EXPO_PUBLIC_ZIGZAG_POSTHOG_API_KEY": "phc_qbOs8NcMhS1B2mMobn0BdGjZnsLziZyALUyFmcGAjUa"
+      }
+    },
+    "production": {
+      "extends": "base",
+      "channel": "production",
+      "node": "22.12.0",
+      "env": {
+        "APP_ENV": "production",
+        "EXPO_PUBLIC_SUPABASE_URL": "https://xfcvuzcxvdpzkqpnahyx.supabase.co",
+        "EXPO_PUBLIC_SUPABASE_ANON_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhmY3Z1emN4dmRwemtxcG5haHl4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzIzMTg5OTksImV4cCI6MjA4Nzg5NDk5OX0.jCE4ssgXYFG1TF7ylP2F_rdsqKE_MorN6jxiLJ3sj8U",
+        "EXPO_PUBLIC_GOOGLE_MAPS_API_KEY": "AIzaSyA9nKk8SB6GVvUZmhAhRCLJzT8iNVgZC48",
+        "EXPO_PUBLIC_ZIGZAG_POSTHOG_API_KEY": "phc_qbOs8NcMhS1B2mMobn0BdGjZnsLziZyALUyFmcGAjUa"
+      }
+    }
+  },
+  "submit": {
+    "production": {
+      "ios": {
+        "ascAppId": "6760234733"
+      }
+    }
+  }
+}
