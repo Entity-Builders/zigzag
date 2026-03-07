@@ -10,6 +10,8 @@ export interface SuggestedActivity {
   timeRelevance: string;
   places: { id: string; name: string; lat: number; lng: number }[];
   tags: string[];
+  setting?: 'indoor' | 'outdoor' | 'any';
+  transportMode?: 'walk' | 'bike' | 'car' | 'transit';
 }
 
 export interface SuggestionsMeta {

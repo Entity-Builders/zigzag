@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback, useRef } from 'react';
+import { useEffect, useState, useCallback, useRef, useMemo } from 'react';
 import {
   View,
   Text,
@@ -9,6 +9,7 @@ import {
   Dimensions,
   RefreshControl,
   Animated,
+  ScrollView,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
@@ -22,6 +23,8 @@ import {
 } from '../../api/suggestions';
 import { discoverPlaces } from '../../api/places';
 import { openNavigation } from '../../utils/navigation';
+import VibesSheet from '../../components/VibesSheet';
+import { VIBES, matchesFilters } from '../../constants/vibes';
 
 const { height: SCREEN_HEIGHT, width: SCREEN_WIDTH } = Dimensions.get('window');
 const MAP_HEIGHT_MINI = SCREEN_HEIGHT * 0.28;
@@ -189,6 +192,27 @@ export default function ForYouScreen() {
   const mapRef = useRef<MapView>(null);
   const [selectedActivity, setSelectedActivity] =
     useState<SuggestedActivity | null>(null);
+
+  // ─── Vibes filter state ───
+  const [activeVibes, setActiveVibes] = useState<string[]>([]);
+  const [transportFilter, setTransportFilter] = useState<string | null>(null);
+  const [vibesSheetVisible, setVibesSheetVisible] = useState(false);
+
+  // ─── Filtered activities (client-side) ───
+  const filteredActivities = useMemo(
+    () =>
+      activities.filter((a) =>
+        matchesFilters(
+          a.tags || [],
+          a.transportMode,
+          activeVibes,
+          transportFilter,
+        ),
+      ),
+    [activities, activeVibes, transportFilter],
+  );
+
+  const activeFilterCount = activeVibes.length + (transportFilter ? 1 : 0);
 
   // ─── Get user location on mount ───
   useEffect(() => {
@@ -587,12 +611,73 @@ export default function ForYouScreen() {
         <View style={styles.feedHeader}>
           <View style={styles.feedHandle} />
           <View style={styles.feedHeaderContent}>
-            <Text style={styles.feedTitle}>⚡ Para vos ahora</Text>
+            <View style={styles.feedTitleRow}>
+              <Text style={styles.feedTitle}>⚡ Para vos ahora</Text>
+              <TouchableOpacity
+                style={[
+                  styles.settingsButton,
+                  activeFilterCount > 0 && styles.settingsButtonActive,
+                ]}
+                onPress={() => setVibesSheetVisible(true)}
+                activeOpacity={0.7}
+              >
+                <Text style={styles.settingsButtonText}>
+                  {activeFilterCount > 0 ? `✨ ${activeFilterCount}` : '✨'}
+                </Text>
+              </TouchableOpacity>
+            </View>
             <Text style={styles.feedSubtitle}>
               📍 {locationName}
               {meta?.temporal ? ` · ${meta.temporal.momentOfDay}` : ''}
             </Text>
           </View>
+
+          {/* Active filter chips */}
+          {activeFilterCount > 0 && (
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              style={styles.activeFiltersRow}
+              contentContainerStyle={styles.activeFiltersContent}
+            >
+              {activeVibes.map((key) => {
+                const v = VIBES.find((vb) => vb.key === key);
+                if (!v) return null;
+                return (
+                  <TouchableOpacity
+                    key={key}
+                    style={styles.activeFilterChip}
+                    onPress={() =>
+                      setActiveVibes((prev) => prev.filter((k) => k !== key))
+                    }
+                    activeOpacity={0.7}
+                  >
+                    <Text style={styles.activeFilterText}>
+                      {v.emoji} {v.label} ✕
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+              {transportFilter && (
+                <TouchableOpacity
+                  style={styles.activeFilterChip}
+                  onPress={() => setTransportFilter(null)}
+                  activeOpacity={0.7}
+                >
+                  <Text style={styles.activeFilterText}>
+                    {transportFilter === 'walk'
+                      ? '🚶 A pie'
+                      : transportFilter === 'bike'
+                        ? '🚲 Bici'
+                        : transportFilter === 'car'
+                          ? '🚗 Auto'
+                          : '🚌 Transporte'}{' '}
+                    ✕
+                  </Text>
+                </TouchableOpacity>
+              )}
+            </ScrollView>
+          )}
         </View>
 
         {loading ? (
@@ -611,7 +696,7 @@ export default function ForYouScreen() {
           )
         ) : (
           <FlatList
-            data={activities}
+            data={filteredActivities}
             keyExtractor={(item) => item.id}
             renderItem={({ item }) => (
               <ActivityCard
@@ -631,21 +716,59 @@ export default function ForYouScreen() {
                 titleColor={colors.textMuted}
               />
             }
+            ListEmptyComponent={
+              activeFilterCount > 0 ? (
+                <View style={styles.filteredEmptyContainer}>
+                  <Text style={styles.filteredEmptyEmoji}>🔍</Text>
+                  <Text style={styles.filteredEmptyTitle}>
+                    No hay actividades para este vibe
+                  </Text>
+                  <Text style={styles.filteredEmptySubtitle}>
+                    Probá con otros filtros o quitá los actuales
+                  </Text>
+                  <TouchableOpacity
+                    style={styles.clearFiltersButton}
+                    onPress={() => {
+                      setActiveVibes([]);
+                      setTransportFilter(null);
+                    }}
+                    activeOpacity={0.7}
+                  >
+                    <Text style={styles.clearFiltersText}>✨ Mostrar todo</Text>
+                  </TouchableOpacity>
+                </View>
+              ) : null
+            }
             ListFooterComponent={
-              <TouchableOpacity
-                style={[styles.loadMoreButton, loadingMore && { opacity: 0.5 }]}
-                onPress={handleLoadMore}
-                disabled={loadingMore}
-                activeOpacity={0.7}
-              >
-                <Text style={styles.loadMoreText}>
-                  {loadingMore ? '⏳ Buscando más...' : '✨ Dame más'}
-                </Text>
-              </TouchableOpacity>
+              filteredActivities.length > 0 ? (
+                <TouchableOpacity
+                  style={[
+                    styles.loadMoreButton,
+                    loadingMore && { opacity: 0.5 },
+                  ]}
+                  onPress={handleLoadMore}
+                  disabled={loadingMore}
+                  activeOpacity={0.7}
+                >
+                  <Text style={styles.loadMoreText}>
+                    {loadingMore ? '⏳ Buscando más...' : '✨ Dame más'}
+                  </Text>
+                </TouchableOpacity>
+              ) : null
             }
           />
         )}
       </SafeAreaView>
+
+      {/* Vibes Sheet */}
+      <VibesSheet
+        visible={vibesSheetVisible}
+        activeVibes={activeVibes}
+        transportFilter={transportFilter}
+        onVibesChange={setActiveVibes}
+        onTransportChange={setTransportFilter}
+        onClose={() => setVibesSheetVisible(false)}
+      />
     </View>
   );
 }
@@ -1001,5 +1124,84 @@ const styles = StyleSheet.create({
     ...typography.caption,
     color: colors.primary,
     fontWeight: '600',
+  },
+  // ─── Vibes Filters ───
+  feedTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  settingsButton: {
+    paddingVertical: 8,
+    paddingHorizontal: 14,
+    borderRadius: radii.full,
+    backgroundColor: colors.surfaceElevated,
+    borderWidth: 1.5,
+    borderColor: colors.border,
+  },
+  settingsButtonActive: {
+    backgroundColor: colors.primarySoft,
+    borderColor: colors.primary,
+  },
+  settingsButtonText: {
+    fontSize: 16,
+  },
+  activeFiltersRow: {
+    marginTop: spacing.sm,
+  },
+  activeFiltersContent: {
+    paddingHorizontal: spacing.lg,
+    gap: 8,
+  },
+  activeFilterChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: radii.full,
+    backgroundColor: colors.primarySoft,
+    borderWidth: 1,
+    borderColor: colors.primary,
+  },
+  activeFilterText: {
+    ...typography.caption,
+    fontSize: 13,
+    fontWeight: '600',
+    color: colors.primary,
+  },
+  filteredEmptyContainer: {
+    alignItems: 'center',
+    paddingVertical: spacing.xxl,
+    paddingHorizontal: spacing.lg,
+    gap: spacing.sm,
+  },
+  filteredEmptyEmoji: {
+    fontSize: 40,
+    marginBottom: spacing.sm,
+  },
+  filteredEmptyTitle: {
+    ...typography.headline,
+    textAlign: 'center',
+  },
+  filteredEmptySubtitle: {
+    ...typography.body,
+    fontSize: 14,
+    color: colors.textSecondary,
+    textAlign: 'center',
+  },
+  clearFiltersButton: {
+    marginTop: spacing.md,
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+    borderRadius: radii.full,
+    backgroundColor: colors.primarySoft,
+    borderWidth: 1,
+    borderColor: colors.primary,
+  },
+  clearFiltersText: {
+    ...typography.caption,
+    fontSize: 14,
+    fontWeight: '700',
+    color: colors.primary,
   },
 });
