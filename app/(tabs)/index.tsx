@@ -573,6 +573,7 @@ export default function ForYouScreen() {
             styles.relocateButton,
             { top: 100 },
             discovering && { opacity: 0.5 },
+            { display: 'none' },
           ]}
           onPress={handleRescan}
           activeOpacity={0.8}
