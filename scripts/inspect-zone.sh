@@ -91,8 +91,7 @@ echo "⚡ ACTIVITIES (ai_suggested, last 48h)"
 echo "───────────────────────────────────────"
 psql "$DB_URL" -c "
   SELECT 
-    a.title,
-    a.emoji,
+    a.name,
     LEFT(a.description, 80) AS description,
     a.metadata->>'moment_of_day' AS moment,
     a.metadata->>'cache_key' AS cache_key,
