@@ -11,10 +11,11 @@ import {
   Linking,
   Platform,
   Alert,
+  Animated,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as Location from 'expo-location';
-import MapView, { Marker, Region } from 'react-native-maps';
+import MapView, { Marker, Circle, Region } from 'react-native-maps';
 import { colors, typography, spacing, radii } from '../../constants/theme';
 import {
   fetchSuggestedActivities,
@@ -23,8 +24,9 @@ import {
 } from '../../api/suggestions';
 import { discoverPlaces } from '../../api/places';
 
-const { height: SCREEN_HEIGHT } = Dimensions.get('window');
-const MAP_HEIGHT = SCREEN_HEIGHT * 0.3;
+const { height: SCREEN_HEIGHT, width: SCREEN_WIDTH } = Dimensions.get('window');
+const MAP_HEIGHT_MINI = SCREEN_HEIGHT * 0.28;
+const SEARCH_RADIUS = 2000; // meters
 
 const PRICE_LABELS = ['Gratis', '$', '$$', '$$$'];
 
@@ -60,97 +62,88 @@ function openNavigation(lat: number, lng: number, label: string) {
   ]);
 }
 
+// ─── Activity Card ──────────────────────────────────────
 function ActivityCard({
   activity,
-  onPress,
   isSelected,
+  onPress,
 }: {
   activity: SuggestedActivity;
-  onPress?: () => void;
-  isSelected?: boolean;
+  isSelected: boolean;
+  onPress: () => void;
 }) {
+  const firstPlace = activity.places?.[0];
+
   return (
     <TouchableOpacity
       style={[styles.card, isSelected && styles.cardSelected]}
-      activeOpacity={0.7}
       onPress={onPress}
+      activeOpacity={0.7}
     >
-      {/* Emoji + Title */}
       <View style={styles.cardHeader}>
         <Text style={styles.cardEmoji}>{activity.emoji}</Text>
         <View style={styles.cardTitleWrap}>
-          <Text style={styles.cardTitle} numberOfLines={2}>
-            {activity.title}
-          </Text>
+          <Text style={styles.cardTitle}>{activity.title}</Text>
         </View>
       </View>
 
-      {/* Description */}
-      <Text style={styles.cardDescription} numberOfLines={3}>
-        {activity.description}
-      </Text>
+      <Text style={styles.cardDescription}>{activity.description}</Text>
 
-      {/* Meta row: duration · price · time relevance */}
       <View style={styles.cardMeta}>
         <Text style={styles.metaChip}>
           ⏱ {formatDuration(activity.estimatedDuration)}
         </Text>
         <Text style={styles.metaChip}>
-          💰 {PRICE_LABELS[activity.priceLevel] || 'Gratis'}
+          {PRICE_LABELS[activity.priceLevel] || 'Gratis'}
         </Text>
       </View>
 
-      {/* Time relevance */}
-      <Text style={styles.cardTimeRelevance}>{activity.timeRelevance}</Text>
+      {activity.timeRelevance ? (
+        <Text style={styles.cardTimeRelevance}>
+          ✨ {activity.timeRelevance}
+        </Text>
+      ) : null}
 
-      {/* Tags + Navigate */}
+      {activity.tags?.length > 0 ? (
+        <View style={styles.tagRow}>
+          {activity.tags.map((tag) => (
+            <View key={tag} style={styles.tag}>
+              <Text style={styles.tagText}>{tag}</Text>
+            </View>
+          ))}
+        </View>
+      ) : null}
+
       <View style={styles.cardFooter}>
-        {activity.tags?.length > 0 && (
-          <View style={styles.tagRow}>
-            {activity.tags.slice(0, 3).map((tag) => (
-              <View key={tag} style={styles.tag}>
-                <Text style={styles.tagText}>{tag}</Text>
-              </View>
-            ))}
-          </View>
-        )}
-        {activity.places.length > 0 && (
+        {firstPlace ? (
           <TouchableOpacity
             style={styles.navButton}
-            onPress={(e) => {
-              e.stopPropagation();
-              const p = activity.places[0];
-              openNavigation(p.lat, p.lng, p.name);
-            }}
-            activeOpacity={0.7}
+            onPress={() =>
+              openNavigation(firstPlace.lat, firstPlace.lng, firstPlace.name)
+            }
           >
             <Text style={styles.navButtonText}>📍 Cómo llego</Text>
           </TouchableOpacity>
-        )}
+        ) : null}
       </View>
     </TouchableOpacity>
   );
 }
 
+// ─── Loading ──────────────────────────────────────
 function LoadingState() {
   return (
     <View style={styles.loadingContainer}>
       <View style={styles.loadingContent}>
         <Text style={styles.loadingEmoji}>⚡</Text>
-        <Text style={styles.loadingTitle}>Pensando para vos...</Text>
-        <Text style={styles.loadingSubtitle}>
-          Analizando tu zona y el momento del día
-        </Text>
-        <ActivityIndicator
-          size='large'
-          color={colors.primary}
-          style={{ marginTop: spacing.md }}
-        />
+        <Text style={styles.loadingTitle}>Preparando tu feed...</Text>
+        <ActivityIndicator color={colors.primary} />
       </View>
     </View>
   );
 }
 
+// ─── Empty State ──────────────────────────────────────
 function EmptyState({ onDiscover }: { onDiscover: () => void }) {
   return (
     <View style={styles.emptyContainer}>
@@ -170,43 +163,55 @@ function EmptyState({ onDiscover }: { onDiscover: () => void }) {
   );
 }
 
+// ═══════════════════════════════════════════════════════
+// ─── Main Screen ──────────────────────────────────────
+// ═══════════════════════════════════════════════════════
+
+type ScreenMode = 'picker' | 'results';
+
 export default function ForYouScreen() {
+  const [mode, setMode] = useState<ScreenMode>('picker');
   const [activities, setActivities] = useState<SuggestedActivity[]>([]);
   const [meta, setMeta] = useState<SuggestionsMeta | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [needsDiscovery, setNeedsDiscovery] = useState(false);
   const [discovering, setDiscovering] = useState(false);
-  const [locationName, setLocationName] = useState('Buscando...');
-  const [region, setRegion] = useState<Region | null>(null);
+  const [locationName, setLocationName] = useState('');
+  const [userCoords, setUserCoords] = useState<{
+    lat: number;
+    lng: number;
+  } | null>(null);
+  const [searchCoords, setSearchCoords] = useState<{
+    lat: number;
+    lng: number;
+  } | null>(null);
+  const [mapCenter, setMapCenter] = useState<{
+    lat: number;
+    lng: number;
+  } | null>(null);
+  const [initializing, setInitializing] = useState(true);
+
+  const mapRef = useRef<MapView>(null);
   const [selectedActivity, setSelectedActivity] =
     useState<SuggestedActivity | null>(null);
-  const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(
-    null,
-  );
-  const mapRef = useRef<MapView>(null);
 
-  const loadSuggestions = useCallback(async (isRefresh = false) => {
-    try {
-      if (!isRefresh) setLoading(true);
-
+  // ─── Get user location on mount ───
+  useEffect(() => {
+    (async () => {
       const { status } = await Location.requestForegroundPermissionsAsync();
-      if (status !== 'granted') return;
+      if (status !== 'granted') {
+        setInitializing(false);
+        return;
+      }
 
       const location = await Location.getCurrentPositionAsync({
         accuracy: Location.Accuracy.Balanced,
       });
 
       const { latitude, longitude } = location.coords;
-      setCoords({ lat: latitude, lng: longitude });
-
-      // Set map region
-      setRegion({
-        latitude,
-        longitude,
-        latitudeDelta: 0.015,
-        longitudeDelta: 0.015,
-      });
+      setUserCoords({ lat: latitude, lng: longitude });
+      setMapCenter({ lat: latitude, lng: longitude });
 
       // Reverse geocode
       try {
@@ -221,52 +226,101 @@ export default function ForYouScreen() {
         }
       } catch {}
 
-      // Fetch AI suggestions
-      const response = await fetchSuggestedActivities(latitude, longitude, {
-        radius: 2000,
-        count: 6,
-        forceRefresh: isRefresh,
-      });
-
-      if (response.meta.placesFound === 0) {
-        setNeedsDiscovery(true);
-        setActivities([]);
-      } else {
-        setNeedsDiscovery(false);
-        setActivities(response.activities);
-        setMeta(response.meta);
-      }
-    } catch (err) {
-      console.error('Suggestions error:', err);
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
-    }
+      setInitializing(false);
+    })();
   }, []);
 
-  useEffect(() => {
-    loadSuggestions();
-  }, [loadSuggestions]);
+  // ─── Search at given coordinates ───
+  const searchAt = useCallback(
+    async (lat: number, lng: number, isRefresh = false) => {
+      try {
+        if (!isRefresh) setLoading(true);
+        setSearchCoords({ lat, lng });
 
+        // Update location name
+        try {
+          const [geo] = await Location.reverseGeocodeAsync({
+            latitude: lat,
+            longitude: lng,
+          });
+          if (geo) {
+            setLocationName(
+              geo.district || geo.subregion || geo.city || 'Tu ubicación',
+            );
+          }
+        } catch {}
+
+        const response = await fetchSuggestedActivities(lat, lng, {
+          radius: SEARCH_RADIUS,
+          count: 6,
+          forceRefresh: isRefresh,
+        });
+
+        if (response.meta.placesFound === 0) {
+          setNeedsDiscovery(true);
+          setActivities([]);
+        } else {
+          setNeedsDiscovery(false);
+          setActivities(response.activities);
+          setMeta(response.meta);
+        }
+      } catch (err) {
+        console.error('Suggestions error:', err);
+      } finally {
+        setLoading(false);
+        setRefreshing(false);
+      }
+    },
+    [],
+  );
+
+  // ─── Confirm location from picker ───
+  const handleConfirmLocation = useCallback(() => {
+    if (!mapCenter) return;
+    setMode('results');
+    searchAt(mapCenter.lat, mapCenter.lng);
+  }, [mapCenter, searchAt]);
+
+  // ─── Go back to picker ───
+  const handleRelocate = useCallback(() => {
+    setMode('picker');
+    setSelectedActivity(null);
+    // Animate map to current search coords
+    if (searchCoords && mapRef.current) {
+      mapRef.current.animateToRegion(
+        {
+          latitude: searchCoords.lat,
+          longitude: searchCoords.lng,
+          latitudeDelta: 0.02,
+          longitudeDelta: 0.02,
+        },
+        300,
+      );
+    }
+  }, [searchCoords]);
+
+  // ─── Refresh ───
   const handleRefresh = useCallback(() => {
+    if (!searchCoords) return;
     setRefreshing(true);
-    loadSuggestions(true);
-  }, [loadSuggestions]);
+    searchAt(searchCoords.lat, searchCoords.lng, true);
+  }, [searchCoords, searchAt]);
 
+  // ─── Discover zone ───
   const handleDiscover = useCallback(async () => {
-    if (!coords) return;
+    if (!searchCoords) return;
     setDiscovering(true);
     try {
-      await discoverPlaces(coords.lat, coords.lng, 2000);
-      // After discovery, reload suggestions
-      await loadSuggestions(true);
+      await discoverPlaces(searchCoords.lat, searchCoords.lng, SEARCH_RADIUS);
+      await searchAt(searchCoords.lat, searchCoords.lng, true);
     } catch (err) {
       console.error('Discovery error:', err);
     } finally {
       setDiscovering(false);
     }
-  }, [coords, loadSuggestions]);
+  }, [searchCoords, searchAt]);
 
+  // ─── Focus on activity ───
   const focusActivity = useCallback((activity: SuggestedActivity) => {
     setSelectedActivity(activity);
     if (activity.places.length > 0) {
@@ -283,50 +337,164 @@ export default function ForYouScreen() {
     }
   }, []);
 
-  // Get ALL place markers from activities
+  // Markers
   const allMarkers = activities.flatMap((a) =>
     a.places.map((p) => ({ ...p, activityId: a.id, emoji: a.emoji })),
   );
 
-  if (loading) {
+  // ─── Handle map region change (picker mode) ───
+  const handleRegionChange = useCallback(
+    (region: Region) => {
+      if (mode === 'picker') {
+        setMapCenter({ lat: region.latitude, lng: region.longitude });
+      }
+    },
+    [mode],
+  );
+
+  if (initializing) {
     return <LoadingState />;
   }
 
+  // ═══════════════════════════════════════════════════════
+  // ─── PICKER MODE ────────────────────────────────────
+  // ═══════════════════════════════════════════════════════
+  if (mode === 'picker') {
+    return (
+      <View style={styles.container}>
+        <MapView
+          ref={mapRef}
+          style={styles.fullMap}
+          initialRegion={
+            mapCenter
+              ? {
+                  latitude: mapCenter.lat,
+                  longitude: mapCenter.lng,
+                  latitudeDelta: 0.02,
+                  longitudeDelta: 0.02,
+                }
+              : undefined
+          }
+          showsUserLocation
+          showsMyLocationButton
+          userInterfaceStyle='dark'
+          mapType='mutedStandard'
+          onRegionChangeComplete={handleRegionChange}
+        >
+          {/* Radius circle */}
+          {mapCenter && (
+            <Circle
+              center={{
+                latitude: mapCenter.lat,
+                longitude: mapCenter.lng,
+              }}
+              radius={SEARCH_RADIUS}
+              fillColor='rgba(99, 102, 241, 0.08)'
+              strokeColor='rgba(99, 102, 241, 0.3)'
+              strokeWidth={1.5}
+            />
+          )}
+        </MapView>
+
+        {/* Crosshair pin (always centered) */}
+        <View style={styles.crosshairContainer} pointerEvents='none'>
+          <Text style={styles.crosshairPin}>📍</Text>
+          <View style={styles.crosshairDot} />
+        </View>
+
+        {/* Bottom card */}
+        <SafeAreaView edges={['bottom']} style={styles.pickerBottomCard}>
+          <View style={styles.pickerContent}>
+            <View style={styles.pickerTextContent}>
+              <Text style={styles.pickerTitle}>¿Dónde exploramos?</Text>
+              <Text style={styles.pickerSubtitle}>
+                Mové el mapa para elegir la zona · Radio:{' '}
+                {SEARCH_RADIUS >= 1000
+                  ? `${SEARCH_RADIUS / 1000}km`
+                  : `${SEARCH_RADIUS}m`}
+              </Text>
+            </View>
+            <TouchableOpacity
+              style={styles.confirmButton}
+              onPress={handleConfirmLocation}
+              activeOpacity={0.8}
+            >
+              <Text style={styles.confirmButtonText}>⚡ Buscar acá</Text>
+            </TouchableOpacity>
+          </View>
+        </SafeAreaView>
+      </View>
+    );
+  }
+
+  // ═══════════════════════════════════════════════════════
+  // ─── RESULTS MODE ──────────────────────────────────
+  // ═══════════════════════════════════════════════════════
   return (
     <View style={styles.container}>
       {/* Mini Map */}
-      <MapView
-        ref={mapRef}
-        style={styles.map}
-        initialRegion={region ?? undefined}
-        showsUserLocation
-        showsMyLocationButton={false}
-        userInterfaceStyle='dark'
-        mapType='mutedStandard'
-      >
-        {allMarkers.map((marker, i) => (
-          <Marker
-            key={`${marker.activityId}-${i}`}
-            coordinate={{
-              latitude: marker.lat,
-              longitude: marker.lng,
-            }}
-            title={marker.name}
-            pinColor={
-              selectedActivity?.id === marker.activityId
-                ? colors.primary
-                : '#94a3b8'
-            }
-          />
-        ))}
-      </MapView>
+      <View>
+        <MapView
+          ref={mapRef}
+          style={styles.miniMap}
+          initialRegion={
+            searchCoords
+              ? {
+                  latitude: searchCoords.lat,
+                  longitude: searchCoords.lng,
+                  latitudeDelta: 0.015,
+                  longitudeDelta: 0.015,
+                }
+              : undefined
+          }
+          showsUserLocation
+          showsMyLocationButton={false}
+          userInterfaceStyle='dark'
+          mapType='mutedStandard'
+        >
+          {/* Search radius */}
+          {searchCoords && (
+            <Circle
+              center={{
+                latitude: searchCoords.lat,
+                longitude: searchCoords.lng,
+              }}
+              radius={SEARCH_RADIUS}
+              fillColor='rgba(99, 102, 241, 0.06)'
+              strokeColor='rgba(99, 102, 241, 0.2)'
+              strokeWidth={1}
+            />
+          )}
 
-      {/* Gradient overlay on map bottom */}
-      <View style={styles.mapGradient} />
+          {allMarkers.map((marker, i) => (
+            <Marker
+              key={`${marker.activityId}-${i}`}
+              coordinate={{
+                latitude: marker.lat,
+                longitude: marker.lng,
+              }}
+              title={marker.name}
+              pinColor={
+                selectedActivity?.id === marker.activityId
+                  ? colors.primary
+                  : '#94a3b8'
+              }
+            />
+          ))}
+        </MapView>
+
+        {/* Relocate button */}
+        <TouchableOpacity
+          style={styles.relocateButton}
+          onPress={handleRelocate}
+          activeOpacity={0.8}
+        >
+          <Text style={styles.relocateButtonText}>📍 Reubicar</Text>
+        </TouchableOpacity>
+      </View>
 
       {/* Activity Feed */}
       <SafeAreaView edges={['bottom']} style={styles.feedContainer}>
-        {/* Header */}
         <View style={styles.feedHeader}>
           <View style={styles.feedHandle} />
           <View style={styles.feedHeaderContent}>
@@ -338,8 +506,12 @@ export default function ForYouScreen() {
           </View>
         </View>
 
-        {/* Content */}
-        {needsDiscovery ? (
+        {loading ? (
+          <View style={styles.discoveringState}>
+            <ActivityIndicator size='small' color={colors.primary} />
+            <Text style={styles.discoveringText}>Buscando actividades...</Text>
+          </View>
+        ) : needsDiscovery ? (
           discovering ? (
             <View style={styles.discoveringState}>
               <ActivityIndicator size='small' color={colors.primary} />
@@ -377,47 +549,106 @@ export default function ForYouScreen() {
   );
 }
 
+// ═══════════════════════════════════════════════════════
+// ─── Styles ──────────────────────────────────────────
+// ═══════════════════════════════════════════════════════
+
 const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.background,
   },
-  // Loading
-  loadingContainer: {
-    flex: 1,
-    backgroundColor: colors.background,
+  // ─── Picker Mode ───
+  fullMap: {
+    ...StyleSheet.absoluteFillObject,
+  },
+  crosshairContainer: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 80,
     justifyContent: 'center',
     alignItems: 'center',
   },
-  loadingContent: {
-    alignItems: 'center',
-    gap: spacing.sm,
+  crosshairPin: {
+    fontSize: 36,
+    marginBottom: -8,
   },
-  loadingEmoji: {
-    fontSize: 48,
+  crosshairDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: colors.primary,
+    opacity: 0.6,
   },
-  loadingTitle: {
-    ...typography.headline,
-    fontSize: 20,
-  },
-  loadingSubtitle: {
-    ...typography.body,
-    textAlign: 'center',
-  },
-  // Map
-  map: {
-    width: '100%',
-    height: MAP_HEIGHT,
-  },
-  mapGradient: {
+  pickerBottomCard: {
     position: 'absolute',
-    top: MAP_HEIGHT - 30,
+    bottom: 0,
     left: 0,
     right: 0,
-    height: 30,
-    backgroundColor: 'transparent',
+    backgroundColor: colors.background,
+    borderTopLeftRadius: radii.xl,
+    borderTopRightRadius: radii.xl,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: -4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 12,
+    elevation: 8,
   },
-  // Feed
+  pickerContent: {
+    padding: spacing.lg,
+    gap: spacing.md,
+  },
+  pickerTextContent: {
+    gap: 4,
+  },
+  pickerTitle: {
+    ...typography.headline,
+    fontSize: 22,
+  },
+  pickerSubtitle: {
+    ...typography.body,
+    fontSize: 14,
+    color: colors.textSecondary,
+  },
+  confirmButton: {
+    backgroundColor: colors.primary,
+    borderRadius: radii.lg,
+    paddingVertical: 16,
+    alignItems: 'center',
+  },
+  confirmButtonText: {
+    fontSize: 17,
+    fontWeight: '800',
+    color: '#fff',
+  },
+  // ─── Results Mode ───
+  miniMap: {
+    width: '100%',
+    height: MAP_HEIGHT_MINI,
+  },
+  relocateButton: {
+    position: 'absolute',
+    top: 52,
+    right: spacing.md,
+    backgroundColor: colors.background,
+    borderRadius: radii.full,
+    paddingVertical: 8,
+    paddingHorizontal: spacing.md,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 6,
+    elevation: 4,
+  },
+  relocateButtonText: {
+    ...typography.caption,
+    fontSize: 13,
+    fontWeight: '700',
+    color: colors.primary,
+  },
+  // ─── Feed ───
   feedContainer: {
     flex: 1,
     backgroundColor: colors.background,
@@ -454,7 +685,7 @@ const styles = StyleSheet.create({
     paddingBottom: 40,
     gap: spacing.md,
   },
-  // Card
+  // ─── Card ───
   card: {
     backgroundColor: colors.surface,
     borderRadius: radii.lg,
@@ -545,7 +776,25 @@ const styles = StyleSheet.create({
     color: colors.primary,
     fontWeight: '700',
   },
-  // Empty
+  // ─── Loading ───
+  loadingContainer: {
+    flex: 1,
+    backgroundColor: colors.background,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  loadingContent: {
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
+  loadingEmoji: {
+    fontSize: 48,
+  },
+  loadingTitle: {
+    ...typography.headline,
+    fontSize: 20,
+  },
+  // ─── Empty ───
   emptyContainer: {
     flex: 1,
     justifyContent: 'center',
@@ -576,7 +825,7 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     color: colors.background,
   },
-  // Discovering
+  // ─── Discovering ───
   discoveringState: {
     flex: 1,
     justifyContent: 'center',
