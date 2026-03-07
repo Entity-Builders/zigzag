@@ -1,9 +1,15 @@
 import { Stack, useRouter, useSegments } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
 import { ActivityIndicator, View, StyleSheet } from 'react-native';
 import { AuthProvider, useAuth } from '../contexts/AuthProvider';
+import { ErrorBoundary } from '../components/ErrorBoundary';
+import { initAnalytics, analytics } from '../lib/analytics';
 import { colors } from '../constants/theme';
+
+// Initialize analytics as early as possible
+// PostHogRNProvider auto-captures: uncaught exceptions, unhandled rejections
+initAnalytics();
 
 function RootNavigator() {
   const { session, loading } = useAuth();
@@ -19,6 +25,11 @@ function RootNavigator() {
       router.replace('/(tabs)');
     } else if (!session && !inAuthScreen) {
       router.replace('/auth');
+    }
+
+    // Identify user in PostHog when authenticated
+    if (session?.user) {
+      analytics.identify(session.user.id, { email: session.user.email });
     }
   }, [session, loading, segments]);
 
@@ -46,9 +57,11 @@ function RootNavigator() {
 
 export default function RootLayout() {
   return (
-    <AuthProvider>
-      <RootNavigator />
-    </AuthProvider>
+    <ErrorBoundary>
+      <AuthProvider>
+        <RootNavigator />
+      </AuthProvider>
+    </ErrorBoundary>
   );
 }
 
