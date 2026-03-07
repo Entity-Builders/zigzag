@@ -107,14 +107,17 @@ export function matchesFilters(
   // Check transport first (strict)
   if (transportFilter && activityTransport !== transportFilter) return false;
 
-  // Check vibes (OR logic)
+  // Check vibes (AND logic)
   if (activeVibes.length > 0) {
-    const activeMatchTags = VIBES.filter((v) =>
-      activeVibes.includes(v.key),
-    ).flatMap((v) => v.matchTags);
+    // Every active vibe must be satisfied by the activity's tags
+    const allVibesMatch = activeVibes.every((activeKey) => {
+      const vibe = VIBES.find((v) => v.key === activeKey);
+      if (!vibe) return true; // Safety check
+      // Activity must have at least one tag matching this specific vibe
+      return activityTags.some((tag) => vibe.matchTags.includes(tag));
+    });
 
-    const hasMatch = activityTags.some((tag) => activeMatchTags.includes(tag));
-    if (!hasMatch) return false;
+    if (!allVibesMatch) return false;
   }
 
   return true;

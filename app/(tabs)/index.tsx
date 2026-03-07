@@ -821,6 +821,11 @@ export default function ForYouScreen() {
         transportFilter={transportFilter}
         onVibesChange={setActiveVibes}
         onTransportChange={setTransportFilter}
+        filteredCount={filteredActivities.length}
+        onSearchRequest={() => {
+          setVibesSheetVisible(false);
+          handleLoadFiltered();
+        }}
         onClose={() => setVibesSheetVisible(false)}
       />
     </View>

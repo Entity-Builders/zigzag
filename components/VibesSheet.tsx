@@ -20,6 +20,8 @@ interface VibesSheetProps {
   transportFilter: string | null;
   onVibesChange: (vibes: string[]) => void;
   onTransportChange: (transport: string | null) => void;
+  filteredCount?: number;
+  onSearchRequest?: () => void;
   onClose: () => void;
 }
 
@@ -29,6 +31,8 @@ export default function VibesSheet({
   transportFilter,
   onVibesChange,
   onTransportChange,
+  filteredCount = 0,
+  onSearchRequest,
   onClose,
 }: VibesSheetProps) {
   const slideAnim = useRef(new Animated.Value(SCREEN_HEIGHT)).current;
@@ -159,13 +163,21 @@ export default function VibesSheet({
         {/* Done button */}
         <TouchableOpacity
           style={styles.doneButton}
-          onPress={onClose}
+          onPress={() => {
+            if (activeCount > 0 && filteredCount === 0 && onSearchRequest) {
+              onSearchRequest();
+            } else {
+              onClose();
+            }
+          }}
           activeOpacity={0.8}
         >
           <Text style={styles.doneButtonText}>
-            {activeCount > 0
-              ? `Listo · ${activeCount} filtro${activeCount > 1 ? 's' : ''}`
-              : 'Sin filtros — mostrar todo'}
+            {activeCount === 0
+              ? 'Sin filtros — mostrar todo'
+              : filteredCount > 0
+                ? `Listo · ${filteredCount} actividad${filteredCount > 1 ? 'es' : '  '}`
+                : '⏳ Buscar actividades'}
           </Text>
         </TouchableOpacity>
       </Animated.View>
