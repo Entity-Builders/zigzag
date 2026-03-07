@@ -5,12 +5,10 @@ import {
   StyleSheet,
   ScrollView,
   TouchableOpacity,
-  Linking,
-  Platform,
-  Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { colors, typography, spacing, radii } from '../../constants/theme';
+import { openNavigation } from '../../utils/navigation';
 
 const PRICE_LABELS = ['Gratis', '$', '$$', '$$$'];
 
@@ -19,29 +17,6 @@ function formatDuration(minutes: number): string {
   const h = Math.floor(minutes / 60);
   const m = minutes % 60;
   return m > 0 ? `${h}h ${m}min` : `${h}h`;
-}
-
-function openNavigation(lat: number, lng: number, label: string) {
-  const encoded = encodeURIComponent(label);
-  const appleMapsUrl = `maps:0,0?q=${encoded}&ll=${lat},${lng}`;
-  const googleMapsUrl = `https://www.google.com/maps/search/?api=1&query=${encoded}&center=${lat},${lng}`;
-
-  const options: any[] = [];
-  if (Platform.OS === 'ios') {
-    options.push({
-      text: 'Apple Maps',
-      onPress: () => Linking.openURL(appleMapsUrl),
-    });
-  }
-  options.push({
-    text: 'Google Maps',
-    onPress: () => Linking.openURL(googleMapsUrl),
-  });
-
-  Alert.alert('¿Cómo querés llegar?', label, [
-    ...options,
-    { text: 'Cancelar', style: 'cancel' as const },
-  ]);
 }
 
 export default function ActivityDetailScreen() {

@@ -8,9 +8,6 @@ import {
   ActivityIndicator,
   Dimensions,
   RefreshControl,
-  Linking,
-  Platform,
-  Alert,
   Animated,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -24,6 +21,7 @@ import {
   type SuggestionsMeta,
 } from '../../api/suggestions';
 import { discoverPlaces } from '../../api/places';
+import { openNavigation } from '../../utils/navigation';
 
 const { height: SCREEN_HEIGHT, width: SCREEN_WIDTH } = Dimensions.get('window');
 const MAP_HEIGHT_MINI = SCREEN_HEIGHT * 0.28;
@@ -42,31 +40,6 @@ function formatDuration(minutes: number): string {
   const h = Math.floor(minutes / 60);
   const m = minutes % 60;
   return m > 0 ? `${h}h ${m}min` : `${h}h`;
-}
-
-function openNavigation(lat: number, lng: number, label: string) {
-  const encodedLabel = encodeURIComponent(label);
-  const appleMapsUrl = `maps:0,0?q=${encodedLabel}&ll=${lat},${lng}`;
-  const googleMapsUrl = `https://www.google.com/maps/search/?api=1&query=${encodedLabel}&center=${lat},${lng}`;
-
-  const options: { text: string; onPress: () => void }[] = [];
-
-  if (Platform.OS === 'ios') {
-    options.push({
-      text: '🍎 Apple Maps',
-      onPress: () => Linking.openURL(appleMapsUrl),
-    });
-  }
-
-  options.push({
-    text: '🗺️ Google Maps',
-    onPress: () => Linking.openURL(googleMapsUrl),
-  });
-
-  Alert.alert('¿Cómo querés llegar?', label, [
-    ...options,
-    { text: 'Cancelar', onPress: () => {}, style: 'cancel' as const },
-  ]);
 }
 
 // ─── Activity Card ──────────────────────────────────────
