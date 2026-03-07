@@ -362,7 +362,7 @@ export default function ForYouScreen() {
     return (
       <View style={styles.container}>
         <MapView
-          key={`picker-${mapCenter?.lat}-${mapCenter?.lng}`}
+          key='picker'
           ref={mapRef}
           style={styles.fullMap}
           initialRegion={
