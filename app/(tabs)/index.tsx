@@ -362,6 +362,7 @@ export default function ForYouScreen() {
     return (
       <View style={styles.container}>
         <MapView
+          key={`picker-${mapCenter?.lat}-${mapCenter?.lng}`}
           ref={mapRef}
           style={styles.fullMap}
           initialRegion={
@@ -690,8 +691,10 @@ const styles = StyleSheet.create({
     right: spacing.md,
     backgroundColor: colors.background,
     borderRadius: radii.full,
-    paddingVertical: 8,
-    paddingHorizontal: spacing.md,
+    paddingVertical: 12,
+    paddingHorizontal: spacing.lg,
+    minHeight: 44,
+    justifyContent: 'center',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.15,
@@ -700,7 +703,7 @@ const styles = StyleSheet.create({
   },
   relocateButtonText: {
     ...typography.caption,
-    fontSize: 13,
+    fontSize: 15,
     fontWeight: '700',
     color: colors.primary,
   },
