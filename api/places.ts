@@ -54,11 +54,12 @@ export async function discoverPlaces(
   lat: number,
   lng: number,
   radiusMeters: number = 2000,
+  forceRescan: boolean = false,
 ): Promise<DiscoveryResult> {
   const { data, error } = await supabase.functions.invoke(
     'zigzag-discover-places',
     {
-      body: { lat, lng, radius_meters: radiusMeters },
+      body: { lat, lng, radius_meters: radiusMeters, forceRescan },
     },
   );
   if (error) throw error;

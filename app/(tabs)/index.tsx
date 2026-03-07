@@ -259,7 +259,7 @@ export default function ForYouScreen() {
 
         const response = await fetchSuggestedActivities(lat, lng, {
           radius: searchRadius,
-          count: 6,
+          count: 10,
           forceRefresh: isRefresh,
         });
 
@@ -268,7 +268,13 @@ export default function ForYouScreen() {
           setActivities([]);
         } else {
           setNeedsDiscovery(false);
-          setActivities(response.activities);
+          if (isRefresh) {
+            setActivities(response.activities);
+          } else {
+            setActivities((prev) =>
+              prev.length > 0 ? prev : response.activities,
+            );
+          }
           setMeta(response.meta);
         }
       } catch (err) {
@@ -305,6 +311,34 @@ export default function ForYouScreen() {
     searchAt(searchCoords.lat, searchCoords.lng, true);
   }, [searchCoords, searchAt]);
 
+  // ─── Load More ───
+  const [loadingMore, setLoadingMore] = useState(false);
+  const handleLoadMore = useCallback(async () => {
+    if (!searchCoords || loadingMore) return;
+    setLoadingMore(true);
+    try {
+      const existingIds = activities.map((a) => a.id);
+      const response = await fetchSuggestedActivities(
+        searchCoords.lat,
+        searchCoords.lng,
+        {
+          radius: searchRadius,
+          count: 6,
+          forceRefresh: true,
+        },
+      );
+      // Append only genuinely new activities
+      const newActivities = response.activities.filter(
+        (a) => !existingIds.includes(a.id),
+      );
+      setActivities((prev) => [...prev, ...newActivities]);
+    } catch (err) {
+      console.error('Load more error:', err);
+    } finally {
+      setLoadingMore(false);
+    }
+  }, [searchCoords, loadingMore, activities, searchRadius]);
+
   // ─── Discover zone ───
   const handleDiscover = useCallback(async () => {
     if (!searchCoords) return;
@@ -318,6 +352,25 @@ export default function ForYouScreen() {
       setDiscovering(false);
     }
   }, [searchCoords, searchAt]);
+
+  // ─── Force rescan zone (re-discover places) ───
+  const handleRescan = useCallback(async () => {
+    if (!searchCoords) return;
+    setDiscovering(true);
+    try {
+      await discoverPlaces(
+        searchCoords.lat,
+        searchCoords.lng,
+        searchRadius,
+        true,
+      );
+      await searchAt(searchCoords.lat, searchCoords.lng, true);
+    } catch (err) {
+      console.error('Rescan error:', err);
+    } finally {
+      setDiscovering(false);
+    }
+  }, [searchCoords, searchAt, searchRadius]);
 
   // ─── Focus on activity ───
   const focusActivity = useCallback((activity: SuggestedActivity) => {
@@ -513,6 +566,22 @@ export default function ForYouScreen() {
         >
           <Text style={styles.relocateButtonText}>📍 Reubicar</Text>
         </TouchableOpacity>
+
+        {/* Rescan button */}
+        <TouchableOpacity
+          style={[
+            styles.relocateButton,
+            { top: 100 },
+            discovering && { opacity: 0.5 },
+          ]}
+          onPress={handleRescan}
+          activeOpacity={0.8}
+          disabled={discovering}
+        >
+          <Text style={styles.relocateButtonText}>
+            {discovering ? '⏳ Escaneando...' : '🔄 Re-escanear'}
+          </Text>
+        </TouchableOpacity>
       </View>
 
       {/* Activity Feed */}
@@ -563,6 +632,18 @@ export default function ForYouScreen() {
                 title='Nuevas sugerencias...'
                 titleColor={colors.textMuted}
               />
+            }
+            ListFooterComponent={
+              <TouchableOpacity
+                style={[styles.loadMoreButton, loadingMore && { opacity: 0.5 }]}
+                onPress={handleLoadMore}
+                disabled={loadingMore}
+                activeOpacity={0.7}
+              >
+                <Text style={styles.loadMoreText}>
+                  {loadingMore ? '⏳ Buscando más...' : '✨ Dame más'}
+                </Text>
+              </TouchableOpacity>
             }
           />
         )}
@@ -893,6 +974,23 @@ const styles = StyleSheet.create({
   },
   discoveringText: {
     ...typography.body,
+    color: colors.primary,
+  },
+  // ─── Load More ───
+  loadMoreButton: {
+    alignItems: 'center',
+    paddingVertical: 16,
+    marginVertical: spacing.md,
+    marginHorizontal: spacing.md,
+    borderRadius: radii.lg,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderStyle: 'dashed',
+  },
+  loadMoreText: {
+    ...typography.body,
+    fontSize: 15,
+    fontWeight: '600',
     color: colors.primary,
   },
 });
