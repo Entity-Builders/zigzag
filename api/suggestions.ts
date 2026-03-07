@@ -42,6 +42,8 @@ export async function fetchSuggestedActivities(
     timezone?: string;
     count?: number;
     forceRefresh?: boolean;
+    requestVibes?: string[];
+    requestTransport?: string | null;
   },
 ): Promise<SuggestionsResponse> {
   const { data, error } = await supabase.functions.invoke(
@@ -54,6 +56,8 @@ export async function fetchSuggestedActivities(
         timezone: options?.timezone,
         count: options?.count ?? 6,
         forceRefresh: options?.forceRefresh ?? false,
+        requestVibes: options?.requestVibes,
+        requestTransport: options?.requestTransport,
       },
     },
   );

@@ -170,6 +170,7 @@ export default function ForYouScreen() {
   const [activities, setActivities] = useState<SuggestedActivity[]>([]);
   const [meta, setMeta] = useState<SuggestionsMeta | null>(null);
   const [loading, setLoading] = useState(false);
+  const [loadingFiltered, setLoadingFiltered] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [needsDiscovery, setNeedsDiscovery] = useState(false);
   const [discovering, setDiscovering] = useState(false);
@@ -336,6 +337,8 @@ export default function ForYouScreen() {
           radius: searchRadius,
           count: 6,
           forceRefresh: true,
+          requestVibes: activeVibes.length > 0 ? activeVibes : undefined,
+          requestTransport: transportFilter || undefined,
         },
       );
       // Append only genuinely new activities
@@ -382,6 +385,42 @@ export default function ForYouScreen() {
       setDiscovering(false);
     }
   }, [searchCoords, searchAt, searchRadius]);
+
+  // ─── Load specific filtered options ───
+  const handleLoadFiltered = useCallback(async () => {
+    if (!searchCoords || loadingFiltered) return;
+    setLoadingFiltered(true);
+    try {
+      const existingIds = activities.map((a) => a.id);
+      const response = await fetchSuggestedActivities(
+        searchCoords.lat,
+        searchCoords.lng,
+        {
+          radius: searchRadius,
+          count: 6,
+          forceRefresh: true,
+          requestVibes: activeVibes.length > 0 ? activeVibes : undefined,
+          requestTransport: transportFilter || undefined,
+        },
+      );
+      // Prepend only genuinely new activities so they show up at the top
+      const newActivities = response.activities.filter(
+        (a) => !existingIds.includes(a.id),
+      );
+      setActivities((prev) => [...newActivities, ...prev]);
+    } catch (err) {
+      console.error('Load filtered error:', err);
+    } finally {
+      setLoadingFiltered(false);
+    }
+  }, [
+    searchCoords,
+    loadingFiltered,
+    activities,
+    searchRadius,
+    activeVibes,
+    transportFilter,
+  ]);
 
   // ─── Focus on activity ───
   const focusActivity = useCallback((activity: SuggestedActivity) => {
@@ -726,13 +765,28 @@ export default function ForYouScreen() {
                   <Text style={styles.filteredEmptySubtitle}>
                     Probá con otros filtros o quitá los actuales
                   </Text>
+
                   <TouchableOpacity
-                    style={styles.clearFiltersButton}
+                    style={[styles.discoverButton, { marginTop: 16 }]}
+                    onPress={handleLoadFiltered}
+                    activeOpacity={0.8}
+                    disabled={loadingFiltered}
+                  >
+                    <Text style={styles.discoverButtonText}>
+                      {loadingFiltered
+                        ? '⏳ Buscando...'
+                        : '⏳ Buscar opciones específicas'}
+                    </Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={[styles.clearFiltersButton, { marginTop: 12 }]}
                     onPress={() => {
                       setActiveVibes([]);
                       setTransportFilter(null);
                     }}
                     activeOpacity={0.7}
+                    disabled={loadingFiltered}
                   >
                     <Text style={styles.clearFiltersText}>✨ Mostrar todo</Text>
                   </TouchableOpacity>
