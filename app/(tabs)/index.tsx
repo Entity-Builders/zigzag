@@ -259,10 +259,6 @@ export default function ForYouScreen() {
         showsMyLocationButton={false}
         userInterfaceStyle='dark'
         mapType='mutedStandard'
-        scrollEnabled={false}
-        zoomEnabled={false}
-        pitchEnabled={false}
-        rotateEnabled={false}
       >
         {allMarkers.map((marker, i) => (
           <Marker
