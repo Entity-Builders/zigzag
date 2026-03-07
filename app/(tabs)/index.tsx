@@ -7,113 +7,146 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   Dimensions,
+  RefreshControl,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
 import * as Location from 'expo-location';
 import MapView, { Marker, Region } from 'react-native-maps';
 import { colors, typography, spacing, radii } from '../../constants/theme';
 import {
-  fetchNearbyPlaces,
-  discoverPlaces,
-  type Place,
-} from '../../api/places';
+  fetchSuggestedActivities,
+  type SuggestedActivity,
+  type SuggestionsMeta,
+} from '../../api/suggestions';
+import { discoverPlaces } from '../../api/places';
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
-const MAP_HEIGHT = SCREEN_HEIGHT * 0.45;
-const MIN_PLACES_THRESHOLD = 3;
+const MAP_HEIGHT = SCREEN_HEIGHT * 0.3;
 
-const PLACE_ICONS: Record<string, string> = {
-  park: '🌳',
-  museum: '🏛️',
-  restaurant: '🍽️',
-  cafe: '☕',
-  bar: '🍸',
-  landmark: '📍',
-  bus_stop: '🚌',
-  subway_station: '🚇',
-  train_station: '🚂',
-  market: '🛒',
-  theater: '🎭',
-  gallery: '🎨',
-  viewpoint: '👀',
-  point_of_interest: '⭐',
-};
+const PRICE_LABELS = ['Gratis', '$', '$$', '$$$'];
 
-const MARKER_COLORS: Record<string, string> = {
-  park: '#34d399',
-  museum: '#818cf8',
-  restaurant: '#fb923c',
-  cafe: '#a78bfa',
-  landmark: '#f87171',
-  subway_station: '#38bdf8',
-  train_station: '#38bdf8',
-  bus_stop: '#94a3b8',
-  market: '#fbbf24',
-  theater: '#f472b6',
-  gallery: '#c084fc',
-};
-
-function formatDistance(meters: number): string {
-  if (meters < 1000) return `${Math.round(meters)}m`;
-  return `${(meters / 1000).toFixed(1)}km`;
+function formatDuration(minutes: number): string {
+  if (minutes < 60) return `${minutes} min`;
+  const h = Math.floor(minutes / 60);
+  const m = minutes % 60;
+  return m > 0 ? `${h}h ${m}min` : `${h}h`;
 }
 
-function PlaceCard({ place, onPress }: { place: Place; onPress?: () => void }) {
-  const icon = PLACE_ICONS[place.type] ?? '📌';
-
+function ActivityCard({
+  activity,
+  onPress,
+  isSelected,
+}: {
+  activity: SuggestedActivity;
+  onPress?: () => void;
+  isSelected?: boolean;
+}) {
   return (
-    <TouchableOpacity style={styles.card} activeOpacity={0.7} onPress={onPress}>
-      <View style={styles.cardIcon}>
-        <Text style={styles.cardEmoji}>{icon}</Text>
-      </View>
-      <View style={styles.cardContent}>
-        <Text style={styles.cardName} numberOfLines={1}>
-          {place.name}
-        </Text>
-        <View style={styles.cardMeta}>
-          <Text style={styles.cardType}>{place.type.replace(/_/g, ' ')}</Text>
-          {place.distance_meters != null && (
-            <Text style={styles.cardDistance}>
-              {formatDistance(place.distance_meters)}
-            </Text>
-          )}
-        </View>
-        {place.address && (
-          <Text style={styles.cardAddress} numberOfLines={1}>
-            {place.address}
+    <TouchableOpacity
+      style={[styles.card, isSelected && styles.cardSelected]}
+      activeOpacity={0.7}
+      onPress={onPress}
+    >
+      {/* Emoji + Title */}
+      <View style={styles.cardHeader}>
+        <Text style={styles.cardEmoji}>{activity.emoji}</Text>
+        <View style={styles.cardTitleWrap}>
+          <Text style={styles.cardTitle} numberOfLines={2}>
+            {activity.title}
           </Text>
-        )}
+        </View>
       </View>
+
+      {/* Description */}
+      <Text style={styles.cardDescription} numberOfLines={3}>
+        {activity.description}
+      </Text>
+
+      {/* Meta row: duration · price · time relevance */}
+      <View style={styles.cardMeta}>
+        <Text style={styles.metaChip}>
+          ⏱ {formatDuration(activity.estimatedDuration)}
+        </Text>
+        <Text style={styles.metaChip}>
+          💰 {PRICE_LABELS[activity.priceLevel] || 'Gratis'}
+        </Text>
+      </View>
+
+      {/* Time relevance */}
+      <Text style={styles.cardTimeRelevance}>{activity.timeRelevance}</Text>
+
+      {/* Tags */}
+      {activity.tags?.length > 0 && (
+        <View style={styles.tagRow}>
+          {activity.tags.slice(0, 4).map((tag) => (
+            <View key={tag} style={styles.tag}>
+              <Text style={styles.tagText}>{tag}</Text>
+            </View>
+          ))}
+        </View>
+      )}
     </TouchableOpacity>
   );
 }
 
-function DiscoveringBanner() {
+function LoadingState() {
   return (
-    <View style={styles.discoverBanner}>
-      <ActivityIndicator size='small' color={colors.primary} />
-      <Text style={styles.discoverText}>Descubriendo tu zona...</Text>
+    <View style={styles.loadingContainer}>
+      <View style={styles.loadingContent}>
+        <Text style={styles.loadingEmoji}>⚡</Text>
+        <Text style={styles.loadingTitle}>Pensando para vos...</Text>
+        <Text style={styles.loadingSubtitle}>
+          Analizando tu zona y el momento del día
+        </Text>
+        <ActivityIndicator
+          size='large'
+          color={colors.primary}
+          style={{ marginTop: spacing.md }}
+        />
+      </View>
     </View>
   );
 }
 
-export default function ExplorarScreen() {
-  const [places, setPlaces] = useState<Place[]>([]);
+function EmptyState({ onDiscover }: { onDiscover: () => void }) {
+  return (
+    <View style={styles.emptyContainer}>
+      <Text style={styles.emptyEmoji}>🗺️</Text>
+      <Text style={styles.emptyTitle}>Zona sin explorar</Text>
+      <Text style={styles.emptySubtitle}>
+        No encontramos lugares cerca. ¿Querés que descubramos tu zona?
+      </Text>
+      <TouchableOpacity
+        style={styles.discoverButton}
+        onPress={onDiscover}
+        activeOpacity={0.8}
+      >
+        <Text style={styles.discoverButtonText}>🔍 Descubrir zona</Text>
+      </TouchableOpacity>
+    </View>
+  );
+}
+
+export default function ForYouScreen() {
+  const [activities, setActivities] = useState<SuggestedActivity[]>([]);
+  const [meta, setMeta] = useState<SuggestionsMeta | null>(null);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [needsDiscovery, setNeedsDiscovery] = useState(false);
   const [discovering, setDiscovering] = useState(false);
   const [locationName, setLocationName] = useState('Buscando...');
   const [region, setRegion] = useState<Region | null>(null);
-  const [selectedPlace, setSelectedPlace] = useState<Place | null>(null);
+  const [selectedActivity, setSelectedActivity] =
+    useState<SuggestedActivity | null>(null);
+  const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(
+    null,
+  );
   const mapRef = useRef<MapView>(null);
-  const listRef = useRef<FlatList>(null);
-  const router = useRouter();
-  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Initial load
-  const loadInitial = useCallback(async () => {
+  const loadSuggestions = useCallback(async (isRefresh = false) => {
     try {
-      setLoading(true);
+      if (!isRefresh) setLoading(true);
+
       const { status } = await Location.requestForegroundPermissionsAsync();
       if (status !== 'granted') return;
 
@@ -122,13 +155,14 @@ export default function ExplorarScreen() {
       });
 
       const { latitude, longitude } = location.coords;
+      setCoords({ lat: latitude, lng: longitude });
 
       // Set map region
       setRegion({
         latitude,
         longitude,
-        latitudeDelta: 0.02,
-        longitudeDelta: 0.02,
+        latitudeDelta: 0.015,
+        longitudeDelta: 0.015,
       });
 
       // Reverse geocode
@@ -144,150 +178,160 @@ export default function ExplorarScreen() {
         }
       } catch {}
 
-      // Fetch nearby
-      const nearby = await fetchNearbyPlaces(latitude, longitude, 5000);
-      setPlaces(nearby);
+      // Fetch AI suggestions
+      const response = await fetchSuggestedActivities(latitude, longitude, {
+        radius: 2000,
+        count: 6,
+      });
 
-      // If not enough, trigger discovery
-      if (nearby.length < MIN_PLACES_THRESHOLD) {
-        setDiscovering(true);
-        try {
-          const result = await discoverPlaces(latitude, longitude, 3000);
-          setPlaces(result.places);
-        } catch {}
-        setDiscovering(false);
+      if (response.meta.placesFound === 0) {
+        setNeedsDiscovery(true);
+        setActivities([]);
+      } else {
+        setNeedsDiscovery(false);
+        setActivities(response.activities);
+        setMeta(response.meta);
       }
     } catch (err) {
-      console.error('Load error:', err);
+      console.error('Suggestions error:', err);
     } finally {
       setLoading(false);
+      setRefreshing(false);
     }
   }, []);
 
   useEffect(() => {
-    loadInitial();
-  }, [loadInitial]);
+    loadSuggestions();
+  }, [loadSuggestions]);
 
-  // When user pans the map, refetch places for new center
-  const onRegionChangeComplete = useCallback((newRegion: Region) => {
-    setRegion(newRegion);
+  const handleRefresh = useCallback(() => {
+    setRefreshing(true);
+    loadSuggestions(true);
+  }, [loadSuggestions]);
 
-    // Debounce — wait 800ms after user stops panning
-    if (debounceRef.current) clearTimeout(debounceRef.current);
-    debounceRef.current = setTimeout(async () => {
-      const { latitude, longitude, latitudeDelta } = newRegion;
-      // Approximate radius from latitudeDelta
-      const radiusMeters = Math.round(latitudeDelta * 111000);
+  const handleDiscover = useCallback(async () => {
+    if (!coords) return;
+    setDiscovering(true);
+    try {
+      await discoverPlaces(coords.lat, coords.lng, 2000);
+      // After discovery, reload suggestions
+      await loadSuggestions(true);
+    } catch (err) {
+      console.error('Discovery error:', err);
+    } finally {
+      setDiscovering(false);
+    }
+  }, [coords, loadSuggestions]);
 
-      try {
-        const nearby = await fetchNearbyPlaces(
-          latitude,
-          longitude,
-          radiusMeters,
-        );
-        setPlaces(nearby);
-
-        // Discover if needed
-        if (nearby.length < MIN_PLACES_THRESHOLD) {
-          setDiscovering(true);
-          try {
-            const result = await discoverPlaces(
-              latitude,
-              longitude,
-              radiusMeters,
-            );
-            setPlaces(result.places);
-          } catch {}
-          setDiscovering(false);
-        }
-      } catch {}
-    }, 800);
+  const focusActivity = useCallback((activity: SuggestedActivity) => {
+    setSelectedActivity(activity);
+    if (activity.places.length > 0) {
+      const place = activity.places[0];
+      mapRef.current?.animateToRegion(
+        {
+          latitude: place.lat,
+          longitude: place.lng,
+          latitudeDelta: 0.008,
+          longitudeDelta: 0.008,
+        },
+        300,
+      );
+    }
   }, []);
 
-  // Center map on a place when tapped in list
-  const focusPlace = useCallback((place: Place) => {
-    setSelectedPlace(place);
-    mapRef.current?.animateToRegion(
-      {
-        latitude: place.latitude,
-        longitude: place.longitude,
-        latitudeDelta: 0.005,
-        longitudeDelta: 0.005,
-      },
-      300,
-    );
-  }, []);
+  // Get ALL place markers from activities
+  const allMarkers = activities.flatMap((a) =>
+    a.places.map((p) => ({ ...p, activityId: a.id, emoji: a.emoji })),
+  );
 
   if (loading) {
-    return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size='large' color={colors.primary} />
-        <Text style={styles.loadingText}>Cargando mapa...</Text>
-      </View>
-    );
+    return <LoadingState />;
   }
 
   return (
     <View style={styles.container}>
-      {/* Map */}
+      {/* Mini Map */}
       <MapView
         ref={mapRef}
         style={styles.map}
         initialRegion={region ?? undefined}
-        onRegionChangeComplete={onRegionChangeComplete}
         showsUserLocation
-        showsMyLocationButton
+        showsMyLocationButton={false}
         userInterfaceStyle='dark'
         mapType='mutedStandard'
+        scrollEnabled={false}
+        zoomEnabled={false}
+        pitchEnabled={false}
+        rotateEnabled={false}
       >
-        {places.map((place) => (
+        {allMarkers.map((marker, i) => (
           <Marker
-            key={place.id}
+            key={`${marker.activityId}-${i}`}
             coordinate={{
-              latitude: place.latitude,
-              longitude: place.longitude,
+              latitude: marker.lat,
+              longitude: marker.lng,
             }}
-            title={place.name}
-            description={`${place.type.replace(/_/g, ' ')}${place.distance_meters ? ' · ' + formatDistance(place.distance_meters) : ''}`}
-            pinColor={MARKER_COLORS[place.type] || colors.primary}
-            onPress={() => setSelectedPlace(place)}
+            title={marker.name}
+            pinColor={
+              selectedActivity?.id === marker.activityId
+                ? colors.primary
+                : '#94a3b8'
+            }
           />
         ))}
       </MapView>
 
-      {/* List overlay */}
-      <SafeAreaView edges={['bottom']} style={styles.listContainer}>
-        {/* Header bar */}
-        <View style={styles.listHeader}>
-          <View style={styles.listHandle} />
-          <View style={styles.listHeaderContent}>
-            <Text style={styles.listTitle}>
-              📍 {locationName} · {places.length} lugares
+      {/* Gradient overlay on map bottom */}
+      <View style={styles.mapGradient} />
+
+      {/* Activity Feed */}
+      <SafeAreaView edges={['bottom']} style={styles.feedContainer}>
+        {/* Header */}
+        <View style={styles.feedHeader}>
+          <View style={styles.feedHandle} />
+          <View style={styles.feedHeaderContent}>
+            <Text style={styles.feedTitle}>⚡ Para vos ahora</Text>
+            <Text style={styles.feedSubtitle}>
+              📍 {locationName}
+              {meta?.temporal ? ` · ${meta.temporal.momentOfDay}` : ''}
             </Text>
-            {discovering && <DiscoveringBanner />}
           </View>
         </View>
 
-        {/* Places list */}
-        <FlatList
-          ref={listRef}
-          data={places}
-          keyExtractor={(item) => item.id}
-          renderItem={({ item }) => (
-            <PlaceCard place={item} onPress={() => focusPlace(item)} />
-          )}
-          contentContainerStyle={styles.list}
-          showsVerticalScrollIndicator={false}
-        />
-
-        {/* FAB */}
-        <TouchableOpacity
-          style={styles.fab}
-          onPress={() => router.push('/generate')}
-          activeOpacity={0.85}
-        >
-          <Text style={styles.fabText}>⚡ Generar Tour</Text>
-        </TouchableOpacity>
+        {/* Content */}
+        {needsDiscovery ? (
+          discovering ? (
+            <View style={styles.discoveringState}>
+              <ActivityIndicator size='small' color={colors.primary} />
+              <Text style={styles.discoveringText}>Escaneando tu zona...</Text>
+            </View>
+          ) : (
+            <EmptyState onDiscover={handleDiscover} />
+          )
+        ) : (
+          <FlatList
+            data={activities}
+            keyExtractor={(item) => item.id}
+            renderItem={({ item }) => (
+              <ActivityCard
+                activity={item}
+                isSelected={selectedActivity?.id === item.id}
+                onPress={() => focusActivity(item)}
+              />
+            )}
+            contentContainerStyle={styles.feedList}
+            showsVerticalScrollIndicator={false}
+            refreshControl={
+              <RefreshControl
+                refreshing={refreshing}
+                onRefresh={handleRefresh}
+                tintColor={colors.primary}
+                title='Nuevas sugerencias...'
+                titleColor={colors.textMuted}
+              />
+            }
+          />
+        )}
       </SafeAreaView>
     </View>
   );
@@ -298,35 +342,55 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: colors.background,
   },
+  // Loading
   loadingContainer: {
     flex: 1,
     backgroundColor: colors.background,
     justifyContent: 'center',
     alignItems: 'center',
-    gap: spacing.md,
   },
-  loadingText: {
+  loadingContent: {
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
+  loadingEmoji: {
+    fontSize: 48,
+  },
+  loadingTitle: {
+    ...typography.headline,
+    fontSize: 20,
+  },
+  loadingSubtitle: {
     ...typography.body,
+    textAlign: 'center',
   },
   // Map
   map: {
     width: '100%',
     height: MAP_HEIGHT,
   },
-  // List container
-  listContainer: {
+  mapGradient: {
+    position: 'absolute',
+    top: MAP_HEIGHT - 30,
+    left: 0,
+    right: 0,
+    height: 30,
+    backgroundColor: 'transparent',
+  },
+  // Feed
+  feedContainer: {
     flex: 1,
     backgroundColor: colors.background,
     borderTopLeftRadius: radii.xl,
     borderTopRightRadius: radii.xl,
     marginTop: -radii.xl,
   },
-  listHeader: {
+  feedHeader: {
     paddingTop: spacing.sm,
     paddingHorizontal: spacing.lg,
     paddingBottom: spacing.sm,
   },
-  listHandle: {
+  feedHandle: {
     width: 36,
     height: 4,
     borderRadius: 2,
@@ -334,105 +398,135 @@ const styles = StyleSheet.create({
     alignSelf: 'center',
     marginBottom: spacing.sm,
   },
-  listHeaderContent: {
-    gap: spacing.xs,
+  feedHeaderContent: {
+    gap: 2,
   },
-  listTitle: {
+  feedTitle: {
+    ...typography.headline,
+    fontSize: 22,
+  },
+  feedSubtitle: {
     ...typography.caption,
     fontSize: 13,
   },
-  // Discovery
-  discoverBanner: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-    backgroundColor: colors.primarySoft,
-    borderRadius: radii.md,
-    paddingVertical: spacing.xs,
-    paddingHorizontal: spacing.md,
-    alignSelf: 'flex-start',
-  },
-  discoverText: {
-    ...typography.caption,
-    color: colors.primary,
-    fontSize: 12,
-  },
-  // List
-  list: {
+  feedList: {
     paddingHorizontal: spacing.lg,
-    paddingBottom: 80,
-    gap: spacing.sm,
+    paddingBottom: 40,
+    gap: spacing.md,
   },
   // Card
   card: {
-    flexDirection: 'row',
-    alignItems: 'center',
     backgroundColor: colors.surface,
     borderRadius: radii.lg,
     borderWidth: 1,
     borderColor: colors.border,
     padding: spacing.md,
-    gap: spacing.md,
+    gap: spacing.sm,
   },
-  cardIcon: {
-    width: 44,
-    height: 44,
-    borderRadius: radii.md,
-    backgroundColor: colors.surfaceElevated,
-    justifyContent: 'center',
-    alignItems: 'center',
+  cardSelected: {
+    borderColor: colors.primary,
+    borderWidth: 2,
+  },
+  cardHeader: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: spacing.sm,
   },
   cardEmoji: {
-    fontSize: 20,
+    fontSize: 28,
+    marginTop: 2,
   },
-  cardContent: {
+  cardTitleWrap: {
     flex: 1,
-    gap: 2,
   },
-  cardName: {
+  cardTitle: {
     ...typography.headline,
-    fontSize: 15,
+    fontSize: 16,
+    lineHeight: 22,
+  },
+  cardDescription: {
+    ...typography.body,
+    fontSize: 14,
+    lineHeight: 20,
+    color: colors.textSecondary,
   },
   cardMeta: {
     flexDirection: 'row',
-    alignItems: 'center',
     gap: spacing.sm,
   },
-  cardType: {
+  metaChip: {
     ...typography.caption,
-    textTransform: 'capitalize',
     fontSize: 12,
+    backgroundColor: colors.surfaceElevated,
+    paddingVertical: 3,
+    paddingHorizontal: spacing.sm,
+    borderRadius: radii.md,
+    overflow: 'hidden',
   },
-  cardDistance: {
+  cardTimeRelevance: {
     ...typography.caption,
+    fontSize: 12,
     color: colors.primary,
-    fontWeight: '700',
-    fontSize: 12,
+    fontWeight: '600',
+    fontStyle: 'italic',
   },
-  cardAddress: {
+  tagRow: {
+    flexDirection: 'row',
+    gap: spacing.xs,
+    flexWrap: 'wrap',
+  },
+  tag: {
+    backgroundColor: colors.surfaceElevated,
+    borderRadius: radii.full,
+    paddingVertical: 2,
+    paddingHorizontal: spacing.sm,
+  },
+  tagText: {
     ...typography.caption,
-    fontSize: 11,
-    marginTop: 1,
+    fontSize: 10,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
   },
-  // FAB
-  fab: {
-    position: 'absolute',
-    bottom: spacing.lg,
-    right: spacing.lg,
-    left: spacing.lg,
+  // Empty
+  emptyContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: spacing.xl,
+    gap: spacing.md,
+  },
+  emptyEmoji: {
+    fontSize: 48,
+  },
+  emptyTitle: {
+    ...typography.headline,
+    fontSize: 20,
+  },
+  emptySubtitle: {
+    ...typography.body,
+    textAlign: 'center',
+  },
+  discoverButton: {
     backgroundColor: colors.primary,
     borderRadius: radii.lg,
     paddingVertical: 14,
-    alignItems: 'center',
-    shadowColor: colors.primary,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 8,
+    paddingHorizontal: spacing.xl,
+    marginTop: spacing.sm,
   },
-  fabText: {
+  discoverButtonText: {
     fontSize: 16,
     fontWeight: '800',
     color: colors.background,
+  },
+  // Discovering
+  discoveringState: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: spacing.md,
+  },
+  discoveringText: {
+    ...typography.body,
+    color: colors.primary,
   },
 });

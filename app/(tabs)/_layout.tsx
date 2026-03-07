@@ -22,15 +22,15 @@ export default function TabLayout() {
       <Tabs.Screen
         name='index'
         options={{
-          title: 'Explorar',
-          tabBarIcon: ({ focused }) => <TabIcon emoji='🗺️' focused={focused} />,
+          title: 'Para Vos',
+          tabBarIcon: ({ focused }) => <TabIcon emoji='⚡' focused={focused} />,
         }}
       />
       <Tabs.Screen
         name='my-tours'
         options={{
-          title: 'Mis Tours',
-          tabBarIcon: ({ focused }) => <TabIcon emoji='⚡' focused={focused} />,
+          title: 'Tours',
+          tabBarIcon: ({ focused }) => <TabIcon emoji='🗺️' focused={focused} />,
         }}
       />
       <Tabs.Screen

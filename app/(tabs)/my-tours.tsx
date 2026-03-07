@@ -9,6 +9,7 @@ import {
   RefreshControl,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useRouter } from 'expo-router';
 import { useAuth } from '../../contexts/AuthProvider';
 import { colors, typography, spacing, radii } from '../../constants/theme';
 import { fetchMyTours, fetchPublicTours, type Tour } from '../../api/tours';
@@ -77,6 +78,7 @@ function TourCard({ tour }: { tour: Tour }) {
 
 export default function MyToursScreen() {
   const { user } = useAuth();
+  const router = useRouter();
   const [myTours, setMyTours] = useState<Tour[]>([]);
   const [publicTours, setPublicTours] = useState<Tour[]>([]);
   const [loading, setLoading] = useState(true);
@@ -154,9 +156,18 @@ export default function MyToursScreen() {
           </Text>
           <Text style={styles.emptyText}>
             {tab === 'mine'
-              ? 'Generá tu primer tour desde Explorar'
+              ? 'Generá tu primer tour con IA'
               : 'Los tours generados aparecerán acá'}
           </Text>
+          {tab === 'mine' && (
+            <TouchableOpacity
+              style={styles.generateCta}
+              onPress={() => router.push('/generate')}
+              activeOpacity={0.8}
+            >
+              <Text style={styles.generateCtaText}>⚡ Generar Tour</Text>
+            </TouchableOpacity>
+          )}
         </View>
       ) : (
         <FlatList
@@ -174,6 +185,15 @@ export default function MyToursScreen() {
           }
         />
       )}
+
+      {/* FAB - Generate Tour */}
+      <TouchableOpacity
+        style={styles.fab}
+        onPress={() => router.push('/generate')}
+        activeOpacity={0.85}
+      >
+        <Text style={styles.fabText}>⚡ Generar Tour</Text>
+      </TouchableOpacity>
     </SafeAreaView>
   );
 }
@@ -300,5 +320,36 @@ const styles = StyleSheet.create({
   emptyText: {
     ...typography.body,
     textAlign: 'center',
+  },
+  generateCta: {
+    backgroundColor: colors.primary,
+    borderRadius: radii.lg,
+    paddingVertical: 14,
+    paddingHorizontal: spacing.xl,
+    marginTop: spacing.sm,
+  },
+  generateCtaText: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: colors.background,
+  },
+  fab: {
+    position: 'absolute',
+    bottom: 100,
+    right: spacing.lg,
+    backgroundColor: colors.primary,
+    borderRadius: radii.full,
+    paddingVertical: 14,
+    paddingHorizontal: spacing.lg,
+    shadowColor: colors.primary,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 8,
+  },
+  fabText: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: colors.background,
   },
 });
