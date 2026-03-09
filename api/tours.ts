@@ -32,6 +32,8 @@ export interface Tour {
     dayNumber?: number;
     travelTimeToNext?: number;
     distanceToNext?: number;
+    transportMode?: string;
+    actions?: string[];
     notes?: string;
   }[];
   metadata?: any;
@@ -69,6 +71,12 @@ export interface GenerateTourDto {
   skipActivities?: boolean;
   excludeTours?: string[];
   categories?: string[];
+  vibe?:
+    | 'balancer'
+    | 'nature_immersion'
+    | 'social_explorer'
+    | 'deep_focus'
+    | 'random';
 }
 
 export async function fetchNearbyTours(

@@ -17,6 +17,7 @@ import { useRouter } from 'expo-router';
 import * as Location from 'expo-location';
 import { useAuth } from '../contexts/AuthProvider';
 import { generateTour } from '../api/tours';
+import { type ExperienceBlueprintVibe } from '@entity-builders/zigzag-logic';
 import { colors, typography, spacing, radii } from '../constants/theme';
 
 const QUICK_PROMPTS = [
@@ -49,6 +50,18 @@ const RADIUS_OPTIONS = [
   { label: '10 km', value: 10000 },
 ];
 
+const VIBE_OPTIONS: {
+  label: string;
+  value: ExperienceBlueprintVibe;
+  icon: string;
+}[] = [
+  { label: 'Sorprendeme', value: 'random', icon: '🎲' },
+  { label: 'Balance', value: 'balancer', icon: '⚖️' },
+  { label: 'Naturaleza', value: 'nature_immersion', icon: '🌳' },
+  { label: 'Social', value: 'social_explorer', icon: '🍻' },
+  { label: 'Foco Profundo', value: 'deep_focus', icon: '☕' },
+];
+
 function formatRadius(meters: number): string {
   if (meters < 1000) return `${meters}m`;
   return `${(meters / 1000).toFixed(meters % 1000 === 0 ? 0 : 1)} km`;
@@ -58,6 +71,7 @@ export default function GenerateTourScreen() {
   const [prompt, setPrompt] = useState('');
   const [generating, setGenerating] = useState(false);
   const [radius, setRadius] = useState(3000);
+  const [vibe, setVibe] = useState<ExperienceBlueprintVibe>('random');
   const [locationMode, setLocationMode] = useState<'current' | 'custom'>(
     'current',
   );
@@ -122,6 +136,7 @@ export default function GenerateTourScreen() {
       const tour = await generateTour({
         prompt: finalPrompt,
         radius,
+        vibe,
         ...(coords && {
           latitude: coords.lat,
           longitude: coords.lng,
@@ -243,6 +258,38 @@ export default function GenerateTourScreen() {
                 editable={!generating}
               />
             )}
+          </View>
+
+          {/* Vibe Selector */}
+          <View style={styles.settingsSection}>
+            <Text style={styles.settingsTitle}>✨ Vibra del Tour</Text>
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.vibeScrollContent}
+            >
+              {VIBE_OPTIONS.map((opt) => (
+                <TouchableOpacity
+                  key={opt.value}
+                  style={[
+                    styles.vibeCard,
+                    vibe === opt.value && styles.vibeCardActive,
+                  ]}
+                  onPress={() => setVibe(opt.value)}
+                  disabled={generating}
+                >
+                  <Text style={styles.vibeIcon}>{opt.icon}</Text>
+                  <Text
+                    style={[
+                      styles.vibeLabel,
+                      vibe === opt.value && styles.vibeLabelActive,
+                    ]}
+                  >
+                    {opt.label}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
           </View>
 
           {/* Radius Slider */}
@@ -450,6 +497,38 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.sm,
     fontSize: 15,
     color: colors.text,
+  },
+  // Vibe Selector
+  vibeScrollContent: {
+    gap: spacing.sm,
+    paddingVertical: spacing.xs,
+  },
+  vibeCard: {
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radii.lg,
+    padding: spacing.md,
+    alignItems: 'center',
+    minWidth: 90,
+    gap: spacing.xs,
+  },
+  vibeCardActive: {
+    backgroundColor: colors.primarySoft,
+    borderColor: colors.primary,
+  },
+  vibeIcon: {
+    fontSize: 24,
+  },
+  vibeLabel: {
+    ...typography.caption,
+    fontSize: 12,
+    color: colors.textSecondary,
+    textAlign: 'center',
+  },
+  vibeLabelActive: {
+    color: colors.primary,
+    fontWeight: '700',
   },
   // Radius
   radiusHeader: {

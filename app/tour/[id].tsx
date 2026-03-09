@@ -149,6 +149,7 @@ export default function TourDetailScreen() {
               (act as any).activityName || act.activity?.name || 'Parada';
             const actDesc =
               act.notes || (act as any).activityData?.description || '';
+            const actions = (act as any).actions || [];
             const duration =
               (act as any).activityData?.duration || act.duration;
             const transport = (act as any).transportMode || 'walk';
@@ -179,6 +180,18 @@ export default function TourDetailScreen() {
                   {actDesc ? (
                     <Text style={styles.timelineDesc}>{actDesc}</Text>
                   ) : null}
+
+                  {/* Actions */}
+                  {actions && actions.length > 0 && (
+                    <View style={styles.actionsContainer}>
+                      {actions.map((action: string, idx: number) => (
+                        <View key={idx} style={styles.actionItem}>
+                          <Text style={styles.actionDot}>•</Text>
+                          <Text style={styles.actionText}>{action}</Text>
+                        </View>
+                      ))}
+                    </View>
+                  )}
 
                   {/* Transport to next */}
                   {!isLast && act.travelTimeToNext && (
@@ -343,6 +356,28 @@ const styles = StyleSheet.create({
     ...typography.body,
     fontSize: 14,
     lineHeight: 20,
+  },
+  actionsContainer: {
+    marginTop: spacing.xs,
+    gap: 4,
+  },
+  actionItem: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: spacing.xs,
+  },
+  actionDot: {
+    color: colors.primary,
+    fontSize: 16,
+    lineHeight: 20,
+    fontWeight: 'bold',
+  },
+  actionText: {
+    ...typography.body,
+    fontSize: 13,
+    color: colors.textSecondary,
+    flex: 1,
+    lineHeight: 18,
   },
   transportBadge: {
     flexDirection: 'row',
