@@ -1,4 +1,5 @@
-import { Analytics, PostHogRNProvider } from '@eb-packages/analytics';
+import { Analytics } from '@eb-packages/analytics';
+import { PostHogRNProvider } from '@eb-packages/analytics/src/posthog-rn-provider';
 
 /**
  * Singleton analytics instance for ZigZag.
