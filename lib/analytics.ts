@@ -23,15 +23,15 @@ export const getPostHogClient = () => posthogRNProvider.getClient();
 
 export function initAnalytics(): void {
   analytics.init({
-    apiKey: process.env.EXPO_PUBLIC_ZIGZAG_POSTHOG_API_KEY ?? '',
-    apiHost: 'https://us.i.posthog.com',
-    disabled: !process.env.EXPO_PUBLIC_ZIGZAG_POSTHOG_API_KEY,
+    apiKey: process.env.EXPO_PUBLIC_POSTHOG_KEY ?? '',
+    apiHost: process.env.EXPO_PUBLIC_POSTHOG_HOST || 'https://us.i.posthog.com',
+    disabled: !process.env.EXPO_PUBLIC_POSTHOG_KEY,
   });
 
   analytics.setGlobalProperties({
     app: 'zigzag',
     platform: 'ios',
-    environment: process.env.EXPO_PUBLIC_ZIGZAG_POSTHOG_API_KEY
+    environment: process.env.EXPO_PUBLIC_POSTHOG_KEY
       ? 'production'
       : 'development',
   });
