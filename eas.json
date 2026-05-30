@@ -5,6 +5,7 @@
   },
   "build": {
     "base": {
+      "corepack": true,
       "cache": {
         "key": "zigzag-{{ checksum 'yarn.lock' }}",
         "paths": ["node_modules"]
