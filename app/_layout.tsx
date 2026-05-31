@@ -2,6 +2,7 @@ import { Stack, useRouter, useSegments } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect } from 'react';
 import { ActivityIndicator, View, StyleSheet } from 'react-native';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { AuthProvider, useAuth } from '../contexts/AuthProvider';
 import { ErrorBoundary } from '../components/ErrorBoundary';
 import { initAnalytics, analytics } from '../lib/analytics';
@@ -15,15 +16,16 @@ function RootNavigator() {
   const { session, loading } = useAuth();
   const segments = useSegments();
   const router = useRouter();
+  const isAuthenticated = Boolean(session);
 
   useEffect(() => {
     if (loading) return;
 
     const inAuthScreen = segments[0] === 'auth';
 
-    if (session && inAuthScreen) {
+    if (isAuthenticated && inAuthScreen) {
       router.replace('/(tabs)');
-    } else if (!session && !inAuthScreen) {
+    } else if (!isAuthenticated && !inAuthScreen) {
       router.replace('/auth');
     }
 
@@ -31,7 +33,7 @@ function RootNavigator() {
     if (session?.user) {
       analytics.identify(session.user.id, { email: session.user.email });
     }
-  }, [session, loading, segments]);
+  }, [isAuthenticated, session, loading, segments, router]);
 
   if (loading) {
     return (
@@ -44,12 +46,22 @@ function RootNavigator() {
   return (
     <>
       <StatusBar style='light' />
-      <Stack screenOptions={{ headerShown: false }}>
-        <Stack.Screen name='(tabs)' />
-        <Stack.Screen name='auth' />
-        <Stack.Screen name='generate' options={{ presentation: 'modal' }} />
-        <Stack.Screen name='tour/[id]' />
-        <Stack.Screen name='activity/[id]' />
+      <Stack
+        initialRouteName={isAuthenticated ? '(tabs)' : 'auth'}
+        screenOptions={{ headerShown: false }}
+      >
+        {!isAuthenticated ? (
+          <Stack.Screen name='auth' />
+        ) : [
+          <Stack.Screen key='tabs' name='(tabs)' />,
+          <Stack.Screen
+            key='generate'
+            name='generate'
+            options={{ presentation: 'modal' }}
+          />,
+          <Stack.Screen key='tour' name='tour/[id]' />,
+          <Stack.Screen key='activity' name='activity/[id]' />,
+        ]}
       </Stack>
     </>
   );
@@ -58,9 +70,11 @@ function RootNavigator() {
 export default function RootLayout() {
   return (
     <ErrorBoundary>
-      <AuthProvider>
-        <RootNavigator />
-      </AuthProvider>
+      <SafeAreaProvider>
+        <AuthProvider>
+          <RootNavigator />
+        </AuthProvider>
+      </SafeAreaProvider>
     </ErrorBoundary>
   );
 }

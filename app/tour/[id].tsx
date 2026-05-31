@@ -84,7 +84,8 @@ export default function TourDetailScreen() {
 
   const totalDuration = activities.reduce(
     (sum, a) =>
-      sum + (a.activity?.duration || (a as any).activityData?.duration || 0),
+      sum +
+      (a.activity?.duration || a.activityData?.duration || a.duration || 0),
     0,
   );
 
@@ -144,15 +145,17 @@ export default function TourDetailScreen() {
           <Text style={styles.sectionTitle}>Itinerario</Text>
           {activities.map((act, index) => {
             const actType =
-              (act as any).activityType || act.activity?.type || 'visit';
+              act.activityType || act.activity?.type || 'visit';
             const actName =
-              (act as any).activityName || act.activity?.name || 'Parada';
-            const actDesc =
-              act.notes || (act as any).activityData?.description || '';
-            const actions = (act as any).actions || [];
+              act.activityName || act.activity?.name || 'Parada';
+            const actDesc = act.notes || act.activityData?.description || '';
+            const actions = act.actions || [];
             const duration =
-              (act as any).activityData?.duration || act.duration;
-            const transport = (act as any).transportMode || 'walk';
+              act.activityData?.duration ||
+              act.duration ||
+              act.activity?.duration ||
+              0;
+            const transport = act.transportMode || 'walk';
             const isLast = index === activities.length - 1;
 
             return (

@@ -6,6 +6,9 @@
   "build": {
     "base": {
       "corepack": true,
+      "env": {
+        "SHARP_IGNORE_GLOBAL_LIBVIPS": "1"
+      },
       "ios": {
         "image": "sdk-55"
       },
@@ -23,10 +26,10 @@
       "distribution": "internal",
       "channel": "development",
       "env": {
-        "EXPO_PUBLIC_GOOGLE_MAPS_API_KEY": "AIzaSyA9nKk8SB6GVvUZmhAhRCLJzT8iNVgZC48",
         "APP_ENV": "development",
         "EXPO_PUBLIC_SUPABASE_URL": "http://localhost:54321",
-        "EXPO_PUBLIC_SUPABASE_ANON_KEY": "dummy_anon_key"
+        "EXPO_PUBLIC_SUPABASE_ANON_KEY": "dummy_anon_key",
+        "EXPO_PUBLIC_SUPABASE_SCHEMA": "zigzag"
       }
     },
     "development-simulator": {
@@ -40,18 +43,18 @@
       "env": {
         "APP_ENV": "development",
         "EXPO_PUBLIC_SUPABASE_URL": "http://127.0.0.1:54321",
-        "EXPO_PUBLIC_SUPABASE_ANON_KEY": "dummy_anon_key"
+        "EXPO_PUBLIC_SUPABASE_ANON_KEY": "dummy_anon_key",
+        "EXPO_PUBLIC_SUPABASE_SCHEMA": "zigzag"
       }
     },
     "preview": {
       "extends": "base",
       "distribution": "internal",
       "channel": "preview",
+      "environment": "preview",
       "env": {
         "APP_ENV": "preview",
-        "EXPO_PUBLIC_SUPABASE_URL": "https://xfcvuzcxvdpzkqpnahyx.supabase.co",
-        "EXPO_PUBLIC_SUPABASE_ANON_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhmY3Z1emN4dmRwemtxcG5haHl4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzIzMTg5OTksImV4cCI6MjA4Nzg5NDk5OX0.jCE4ssgXYFG1TF7ylP2F_rdsqKE_MorN6jxiLJ3sj8U",
-        "EXPO_PUBLIC_GOOGLE_MAPS_API_KEY": "AIzaSyA9nKk8SB6GVvUZmhAhRCLJzT8iNVgZC48",
+        "EXPO_PUBLIC_SUPABASE_SCHEMA": "zigzag",
         "EXPO_PUBLIC_ZIGZAG_POSTHOG_API_KEY": "phc_qbOs8NcMhS1B2mMobn0BdGjZnsLziZyALUyFmcGAjUa"
       }
     },
@@ -59,11 +62,10 @@
       "extends": "base",
       "autoIncrement": true,
       "channel": "production",
+      "environment": "production",
       "env": {
         "APP_ENV": "production",
-        "EXPO_PUBLIC_SUPABASE_URL": "https://xfcvuzcxvdpzkqpnahyx.supabase.co",
-        "EXPO_PUBLIC_SUPABASE_ANON_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhmY3Z1emN4dmRwemtxcG5haHl4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzIzMTg5OTksImV4cCI6MjA4Nzg5NDk5OX0.jCE4ssgXYFG1TF7ylP2F_rdsqKE_MorN6jxiLJ3sj8U",
-        "EXPO_PUBLIC_GOOGLE_MAPS_API_KEY": "AIzaSyA9nKk8SB6GVvUZmhAhRCLJzT8iNVgZC48",
+        "EXPO_PUBLIC_SUPABASE_SCHEMA": "zigzag",
         "EXPO_PUBLIC_ZIGZAG_POSTHOG_API_KEY": "phc_qbOs8NcMhS1B2mMobn0BdGjZnsLziZyALUyFmcGAjUa"
       }
     }

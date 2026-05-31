@@ -21,12 +21,18 @@ export interface Tour {
       longitude?: number;
       address?: string;
       price?: number;
+      duration?: number;
     };
     // Inline fields in case activity relation is missing
     activityName?: string;
     activityType?: string;
     activityLatitude?: number;
     activityLongitude?: number;
+    activityData?: {
+      description?: string;
+      duration?: number;
+    };
+    duration?: number;
 
     order: number;
     dayNumber?: number;

@@ -63,6 +63,9 @@ function buildEasConfig() {
     build: {
       base: {
         corepack: true,
+        env: {
+          SHARP_IGNORE_GLOBAL_LIBVIPS: '1',
+        },
         ios: {
           image: 'sdk-55',
         },

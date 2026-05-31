@@ -22,18 +22,21 @@ export const analytics = new Analytics(posthogRNProvider);
 export const getPostHogClient = () => posthogRNProvider.getClient();
 
 export function initAnalytics(): void {
+  const posthogKey =
+    process.env.EXPO_PUBLIC_POSTHOG_KEY ||
+    process.env.EXPO_PUBLIC_ZIGZAG_POSTHOG_API_KEY ||
+    '';
+
   analytics.init({
-    apiKey: process.env.EXPO_PUBLIC_POSTHOG_KEY ?? '',
+    apiKey: posthogKey,
     apiHost: process.env.EXPO_PUBLIC_POSTHOG_HOST || 'https://us.i.posthog.com',
-    disabled: !process.env.EXPO_PUBLIC_POSTHOG_KEY,
+    disabled: !posthogKey,
   });
 
   analytics.setGlobalProperties({
     app: 'zigzag',
     platform: 'ios',
-    environment: process.env.EXPO_PUBLIC_POSTHOG_KEY
-      ? 'production'
-      : 'development',
+    environment: posthogKey ? 'production' : 'development',
   });
 }
 

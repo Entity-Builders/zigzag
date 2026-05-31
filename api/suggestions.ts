@@ -30,6 +30,29 @@ export interface SuggestionsResponse {
   meta: SuggestionsMeta;
 }
 
+async function buildFunctionError(error: unknown): Promise<Error> {
+  const context = (error as { context?: Response })?.context;
+  let details: string | undefined;
+
+  if (context) {
+    try {
+      const text = await context.clone().text();
+      details = text || `${context.status} ${context.statusText}`;
+    } catch {
+      details = `${context.status} ${context.statusText}`;
+    }
+  }
+
+  const message =
+    details && details !== '{}'
+      ? `Suggestions function failed: ${details}`
+      : error instanceof Error
+        ? error.message
+        : 'Suggestions function failed';
+
+  return new Error(message);
+}
+
 /**
  * Fetch AI-suggested activities for the user's current location and moment.
  * Calls the zigzag-suggest-activities edge function.
@@ -62,6 +85,6 @@ export async function fetchSuggestedActivities(
     },
   );
 
-  if (error) throw error;
+  if (error) throw await buildFunctionError(error);
   return data as SuggestionsResponse;
 }
