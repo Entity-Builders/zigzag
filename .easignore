@@ -4,6 +4,7 @@ node_modules/
 # Other apps in the monorepo
 ../../apps/PostalPeek/
 ../../apps/baraja/
+../../apps/compas/
 ../../apps/flowtranslate/
 ../../apps/guita-control/
 ../../apps/minimal-money/
