@@ -22,6 +22,7 @@ module.exports = createAppConfig({
   },
   web: {
     bundler: 'metro',
+    favicon: './assets/favicon.png',
   },
   extra: {
     EXPO_PUBLIC_APP_ENV: process.env.EXPO_PUBLIC_APP_ENV || process.env.APP_ENV,

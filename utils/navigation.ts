@@ -13,6 +13,11 @@ export function openNavigation(lat: number, lng: number, label: string) {
   // Google Maps: query=lat,lng pins the exact spot (no name-based search)
   const googleMapsUrl = `https://www.google.com/maps/search/?api=1&query=${lat},${lng}`;
 
+  if (Platform.OS === 'web') {
+    window.open(googleMapsUrl, '_blank', 'noopener,noreferrer');
+    return;
+  }
+
   const options: { text: string; onPress: () => void }[] = [];
 
   if (Platform.OS === 'ios') {

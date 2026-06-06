@@ -8,11 +8,11 @@ import {
   KeyboardAvoidingView,
   Platform,
   ActivityIndicator,
-  Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { supabase } from '@eb-packages/logic';
 import { colors, typography, spacing, radii } from '../constants/theme';
+import { showAlert } from '../utils/alerts';
 
 export default function AuthScreen() {
   const [email, setEmail] = useState('');
@@ -22,11 +22,11 @@ export default function AuthScreen() {
 
   const handleAuth = async () => {
     if (!email.trim()) {
-      Alert.alert('Error', 'Ingresá tu email');
+      showAlert('Error', 'Ingresá tu email');
       return;
     }
     if (!password.trim() || password.length < 6) {
-      Alert.alert('Error', 'La contraseña debe tener al menos 6 caracteres');
+      showAlert('Error', 'La contraseña debe tener al menos 6 caracteres');
       return;
     }
 
@@ -39,10 +39,10 @@ export default function AuthScreen() {
       });
       setLoading(false);
       if (error) {
-        Alert.alert('Error', error.message);
+        showAlert('Error', error.message);
         return;
       }
-      Alert.alert('¡Listo!', 'Cuenta creada. Ya estás logueado.');
+      showAlert('¡Listo!', 'Cuenta creada. Ya estás logueado.');
     } else {
       const { error } = await supabase.auth.signInWithPassword({
         email: email.trim(),
@@ -50,7 +50,7 @@ export default function AuthScreen() {
       });
       setLoading(false);
       if (error) {
-        Alert.alert('Error', error.message);
+        showAlert('Error', error.message);
         return;
       }
     }
@@ -68,7 +68,7 @@ export default function AuthScreen() {
             <Text style={styles.logo}>⚡</Text>
             <Text style={styles.title}>ZigZag</Text>
             <Text style={styles.subtitle}>
-              Intelligent location-aware workflows
+              Planificá tu día en la ciudad y guardá tus itinerarios
             </Text>
           </View>
 

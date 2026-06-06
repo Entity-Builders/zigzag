@@ -8,13 +8,10 @@ import {
   ActivityIndicator,
   Dimensions,
   RefreshControl,
-  Animated,
   ScrollView,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
-import * as Location from 'expo-location';
-import MapView, { Marker, Circle, Region } from 'react-native-maps';
 import { colors, typography, spacing, radii } from '../../constants/theme';
 import {
   fetchSuggestedActivities,
@@ -25,8 +22,20 @@ import { discoverPlaces } from '../../api/places';
 import { openNavigation } from '../../utils/navigation';
 import VibesSheet from '../../components/VibesSheet';
 import { VIBES, matchesFilters } from '../../constants/vibes';
+import {
+  getInitialLocation,
+  reverseGeocodeLabel,
+  type Coordinates,
+} from '../../lib/location';
+import {
+  ZigzagCircle,
+  ZigzagMap,
+  type ZigzagMapHandle,
+  ZigzagMarker,
+  type ZigzagRegion,
+} from '../../components/ZigzagMap';
 
-const { height: SCREEN_HEIGHT, width: SCREEN_WIDTH } = Dimensions.get('window');
+const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 const MAP_HEIGHT_MINI = SCREEN_HEIGHT * 0.28;
 
 const RADIUS_OPTIONS = [
@@ -163,10 +172,11 @@ function EmptyState({ onDiscover }: { onDiscover: () => void }) {
 // ─── Main Screen ──────────────────────────────────────
 // ═══════════════════════════════════════════════════════
 
-type ScreenMode = 'picker' | 'results';
+type ScreenMode = 'start' | 'picker' | 'results';
 
 export default function ForYouScreen() {
-  const [mode, setMode] = useState<ScreenMode>('picker');
+  const router = useRouter();
+  const [mode, setMode] = useState<ScreenMode>('start');
   const [activities, setActivities] = useState<SuggestedActivity[]>([]);
   const [meta, setMeta] = useState<SuggestionsMeta | null>(null);
   const [loading, setLoading] = useState(false);
@@ -175,22 +185,13 @@ export default function ForYouScreen() {
   const [needsDiscovery, setNeedsDiscovery] = useState(false);
   const [discovering, setDiscovering] = useState(false);
   const [locationName, setLocationName] = useState('');
-  const [userCoords, setUserCoords] = useState<{
-    lat: number;
-    lng: number;
-  } | null>(null);
-  const [searchCoords, setSearchCoords] = useState<{
-    lat: number;
-    lng: number;
-  } | null>(null);
-  const [mapCenter, setMapCenter] = useState<{
-    lat: number;
-    lng: number;
-  } | null>(null);
+  const [userCoords, setUserCoords] = useState<Coordinates | null>(null);
+  const [searchCoords, setSearchCoords] = useState<Coordinates | null>(null);
+  const [mapCenter, setMapCenter] = useState<Coordinates | null>(null);
   const [initializing, setInitializing] = useState(true);
   const [searchRadius, setSearchRadius] = useState(2000);
 
-  const mapRef = useRef<MapView>(null);
+  const mapRef = useRef<ZigzagMapHandle>(null);
   const [selectedActivity, setSelectedActivity] =
     useState<SuggestedActivity | null>(null);
 
@@ -218,33 +219,14 @@ export default function ForYouScreen() {
   // ─── Get user location on mount ───
   useEffect(() => {
     (async () => {
-      const { status } = await Location.requestForegroundPermissionsAsync();
-      if (status !== 'granted') {
-        setInitializing(false);
-        return;
+      const result = await getInitialLocation();
+      if (result.coords) {
+        setUserCoords(result.coords);
+        setMapCenter(result.coords);
+      } else {
+        setMapCenter(result.fallbackCoords);
       }
-
-      const location = await Location.getCurrentPositionAsync({
-        accuracy: Location.Accuracy.Balanced,
-      });
-
-      const { latitude, longitude } = location.coords;
-      setUserCoords({ lat: latitude, lng: longitude });
-      setMapCenter({ lat: latitude, lng: longitude });
-
-      // Reverse geocode
-      try {
-        const [geo] = await Location.reverseGeocodeAsync({
-          latitude,
-          longitude,
-        });
-        if (geo) {
-          setLocationName(
-            geo.district || geo.subregion || geo.city || 'Tu ubicación',
-          );
-        }
-      } catch {}
-
+      setLocationName(result.label);
       setInitializing(false);
     })();
   }, []);
@@ -257,17 +239,9 @@ export default function ForYouScreen() {
         setSearchCoords({ lat, lng });
 
         // Update location name
-        try {
-          const [geo] = await Location.reverseGeocodeAsync({
-            latitude: lat,
-            longitude: lng,
-          });
-          if (geo) {
-            setLocationName(
-              geo.district || geo.subregion || geo.city || 'Tu ubicación',
-            );
-          }
-        } catch {}
+        setLocationName(
+          await reverseGeocodeLabel({ lat, lng }, 'Zona seleccionada'),
+        );
 
         const response = await fetchSuggestedActivities(lat, lng, {
           radius: searchRadius,
@@ -305,6 +279,11 @@ export default function ForYouScreen() {
     setMode('results');
     searchAt(mapCenter.lat, mapCenter.lng);
   }, [mapCenter, searchAt]);
+
+  const handleExploreNearby = useCallback(() => {
+    setMode('picker');
+    setSelectedActivity(null);
+  }, []);
 
   // ─── Go back to picker ───
   const handleRelocate = useCallback(() => {
@@ -456,7 +435,7 @@ export default function ForYouScreen() {
 
   // ─── Handle map region change (picker mode) ───
   const handleRegionChange = useCallback(
-    (region: Region) => {
+    (region: ZigzagRegion) => {
       if (mode === 'picker') {
         setMapCenter({ lat: region.latitude, lng: region.longitude });
       }
@@ -469,12 +448,85 @@ export default function ForYouScreen() {
   }
 
   // ═══════════════════════════════════════════════════════
+  // ─── START MODE ─────────────────────────────────────
+  // ═══════════════════════════════════════════════════════
+  if (mode === 'start') {
+    return (
+      <SafeAreaView style={styles.startContainer}>
+        <ScrollView
+          style={styles.flex}
+          contentContainerStyle={styles.startContent}
+          showsVerticalScrollIndicator={false}
+        >
+          <View style={styles.startHeader}>
+            <Text style={styles.startEyebrow}>Zigzag</Text>
+            <Text style={styles.startTitle}>Plan A City Day</Text>
+            <Text style={styles.startSubtitle}>
+              Armá una ruta personalizada desde hotel, barrio, dirección o tu
+              ubicación actual.
+            </Text>
+          </View>
+
+          <View style={styles.primaryActionGroup}>
+            <TouchableOpacity
+              style={styles.startPrimaryButton}
+              onPress={() => router.push('/generate')}
+              activeOpacity={0.82}
+            >
+              <Text style={styles.startPrimaryButtonText}>
+                Planificar City Day
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.startSecondaryButton}
+              onPress={handleExploreNearby}
+              activeOpacity={0.75}
+            >
+              <Text style={styles.startSecondaryButtonText}>
+                Explorar cerca ahora
+              </Text>
+            </TouchableOpacity>
+          </View>
+
+          <View style={styles.routeContextSection}>
+            <View style={styles.routeContextRow}>
+              <Text style={styles.routeContextLabel}>Inicio</Text>
+              <Text style={styles.routeContextValue}>Hotel, zona o ciudad</Text>
+            </View>
+            <View style={styles.routeContextRow}>
+              <Text style={styles.routeContextLabel}>Ajuste</Text>
+              <Text style={styles.routeContextValue}>
+                ritmo, comida, grupo y presupuesto
+              </Text>
+            </View>
+            <View style={styles.routeContextRow}>
+              <Text style={styles.routeContextLabel}>Resultado</Text>
+              <Text style={styles.routeContextValue}>
+                mapa, timeline y motivos por parada
+              </Text>
+            </View>
+          </View>
+
+          <TouchableOpacity
+            style={styles.savedRoutesLink}
+            onPress={() => router.push('/(tabs)/my-tours')}
+            activeOpacity={0.75}
+          >
+            <Text style={styles.savedRoutesLinkText}>Ver mis City Days</Text>
+          </TouchableOpacity>
+        </ScrollView>
+      </SafeAreaView>
+    );
+  }
+
+  // ═══════════════════════════════════════════════════════
   // ─── PICKER MODE ────────────────────────────────────
   // ═══════════════════════════════════════════════════════
   if (mode === 'picker') {
     return (
       <View style={styles.container}>
-        <MapView
+        <ZigzagMap
           key='picker'
           ref={mapRef}
           style={styles.fullMap}
@@ -496,7 +548,7 @@ export default function ForYouScreen() {
         >
           {/* Radius circle */}
           {mapCenter && (
-            <Circle
+            <ZigzagCircle
               center={{
                 latitude: mapCenter.lat,
                 longitude: mapCenter.lng,
@@ -507,7 +559,7 @@ export default function ForYouScreen() {
               strokeWidth={1.5}
             />
           )}
-        </MapView>
+        </ZigzagMap>
 
         {/* Crosshair pin (always centered) */}
         <View style={styles.crosshairContainer} pointerEvents='none'>
@@ -518,6 +570,21 @@ export default function ForYouScreen() {
         {/* Bottom card */}
         <SafeAreaView edges={['bottom']} style={styles.pickerBottomCard}>
           <View style={styles.pickerContent}>
+            <View style={styles.modeRow}>
+              <View style={[styles.modeChip, styles.modeChipActive]}>
+                <Text style={[styles.modeChipText, styles.modeChipTextActive]}>
+                  Explorar cerca
+                </Text>
+              </View>
+              <TouchableOpacity
+                style={styles.modeChip}
+                onPress={() => router.push('/generate')}
+                activeOpacity={0.75}
+              >
+                <Text style={styles.modeChipText}>Plan A City Day</Text>
+              </TouchableOpacity>
+            </View>
+
             <View style={styles.pickerTextContent}>
               <Text style={styles.pickerTitle}>¿Dónde exploramos?</Text>
               <Text style={styles.pickerSubtitle}>
@@ -554,7 +621,7 @@ export default function ForYouScreen() {
               onPress={handleConfirmLocation}
               activeOpacity={0.8}
             >
-              <Text style={styles.confirmButtonText}>⚡ Buscar acá</Text>
+              <Text style={styles.confirmButtonText}>Buscar actividades</Text>
             </TouchableOpacity>
           </View>
         </SafeAreaView>
@@ -569,7 +636,7 @@ export default function ForYouScreen() {
     <View style={styles.container}>
       {/* Mini Map */}
       <View>
-        <MapView
+        <ZigzagMap
           ref={mapRef}
           style={styles.miniMap}
           initialRegion={
@@ -589,7 +656,7 @@ export default function ForYouScreen() {
         >
           {/* Search radius */}
           {searchCoords && (
-            <Circle
+            <ZigzagCircle
               center={{
                 latitude: searchCoords.lat,
                 longitude: searchCoords.lng,
@@ -602,7 +669,7 @@ export default function ForYouScreen() {
           )}
 
           {allMarkers.map((marker, i) => (
-            <Marker
+            <ZigzagMarker
               key={`${marker.activityId}-${i}`}
               coordinate={{
                 latitude: marker.lat,
@@ -616,7 +683,7 @@ export default function ForYouScreen() {
               }
             />
           ))}
-        </MapView>
+        </ZigzagMap>
 
         {/* Relocate button */}
         <TouchableOpacity
@@ -651,7 +718,7 @@ export default function ForYouScreen() {
           <View style={styles.feedHandle} />
           <View style={styles.feedHeaderContent}>
             <View style={styles.feedTitleRow}>
-              <Text style={styles.feedTitle}>⚡ Para vos ahora</Text>
+              <Text style={styles.feedTitle}>Explorar cerca</Text>
               <TouchableOpacity
                 style={[
                   styles.settingsButton,
@@ -669,6 +736,13 @@ export default function ForYouScreen() {
               📍 {locationName}
               {meta?.temporal ? ` · ${meta.temporal.momentOfDay}` : ''}
             </Text>
+            <TouchableOpacity
+              style={styles.planDayButton}
+              onPress={() => router.push('/generate')}
+              activeOpacity={0.75}
+            >
+              <Text style={styles.planDayButtonText}>Plan A City Day</Text>
+            </TouchableOpacity>
           </View>
 
           {/* Active filter chips */}
@@ -841,6 +915,125 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: colors.background,
   },
+  flex: {
+    flex: 1,
+  },
+  // ─── Start Mode ───
+  startContainer: {
+    flex: 1,
+    backgroundColor: colors.background,
+  },
+  startContent: {
+    width: '100%',
+    maxWidth: 720,
+    alignSelf: 'center',
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.xl,
+    paddingBottom: 120,
+    gap: spacing.xl,
+  },
+  startHeader: {
+    gap: spacing.sm,
+  },
+  startEyebrow: {
+    ...typography.label,
+    color: colors.primary,
+    letterSpacing: 0,
+  },
+  startTitle: {
+    fontSize: 36,
+    lineHeight: 42,
+    fontWeight: '800',
+    letterSpacing: 0,
+    color: colors.text,
+  },
+  startSubtitle: {
+    ...typography.body,
+    maxWidth: 560,
+    lineHeight: 23,
+  },
+  primaryActionGroup: {
+    gap: spacing.md,
+  },
+  startPrimaryButton: {
+    minHeight: 58,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderRadius: radii.lg,
+    backgroundColor: colors.primary,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.md,
+  },
+  startPrimaryButtonText: {
+    fontSize: 17,
+    lineHeight: 22,
+    fontWeight: '800',
+    letterSpacing: 0,
+    color: colors.background,
+    textAlign: 'center',
+  },
+  startSecondaryButton: {
+    minHeight: 52,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderRadius: radii.lg,
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.md,
+  },
+  startSecondaryButtonText: {
+    fontSize: 16,
+    lineHeight: 21,
+    fontWeight: '700',
+    letterSpacing: 0,
+    color: colors.text,
+    textAlign: 'center',
+  },
+  routeContextSection: {
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radii.lg,
+    padding: spacing.md,
+    gap: spacing.sm,
+  },
+  routeContextRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    gap: spacing.md,
+    paddingVertical: spacing.xs,
+  },
+  routeContextLabel: {
+    ...typography.label,
+    width: 78,
+    color: colors.textMuted,
+    letterSpacing: 0,
+  },
+  routeContextValue: {
+    ...typography.caption,
+    flex: 1,
+    fontSize: 14,
+    lineHeight: 19,
+    color: colors.textSecondary,
+    textAlign: 'right',
+  },
+  savedRoutesLink: {
+    minHeight: 48,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderRadius: radii.md,
+  },
+  savedRoutesLinkText: {
+    fontSize: 15,
+    lineHeight: 20,
+    fontWeight: '700',
+    letterSpacing: 0,
+    color: colors.primary,
+    textAlign: 'center',
+  },
   // ─── Picker Mode ───
   fullMap: {
     ...StyleSheet.absoluteFillObject,
@@ -882,6 +1075,35 @@ const styles = StyleSheet.create({
   pickerContent: {
     padding: spacing.lg,
     gap: spacing.md,
+  },
+  modeRow: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+  },
+  modeChip: {
+    flex: 1,
+    minHeight: 42,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderRadius: radii.full,
+    backgroundColor: colors.surfaceElevated,
+    borderWidth: 1,
+    borderColor: colors.border,
+    paddingHorizontal: spacing.sm,
+  },
+  modeChipActive: {
+    backgroundColor: colors.primarySoft,
+    borderColor: colors.primary,
+  },
+  modeChipText: {
+    ...typography.caption,
+    color: colors.textSecondary,
+    fontSize: 13,
+    fontWeight: '700',
+    textAlign: 'center',
+  },
+  modeChipTextActive: {
+    color: colors.primary,
   },
   pickerTextContent: {
     gap: 4,
@@ -999,6 +1221,22 @@ const styles = StyleSheet.create({
   feedSubtitle: {
     ...typography.caption,
     fontSize: 13,
+  },
+  planDayButton: {
+    marginTop: spacing.sm,
+    minHeight: 42,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderRadius: radii.lg,
+    backgroundColor: colors.primarySoft,
+    borderWidth: 1,
+    borderColor: colors.primary,
+  },
+  planDayButtonText: {
+    ...typography.caption,
+    color: colors.primary,
+    fontSize: 14,
+    fontWeight: '800',
   },
   feedList: {
     paddingHorizontal: spacing.lg,

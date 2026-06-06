@@ -1,19 +1,11 @@
-import { Analytics, PostHogProvider } from '@eb-packages/analytics';
+import { Platform } from 'react-native';
+import { Analytics } from '@eb-packages/analytics';
+import { PostHogRNProvider } from '@eb-packages/analytics/src/posthog-rn-provider';
 
-/**
- * Singleton analytics instance for ZigZag.
- * Uses @eb-packages/analytics (shared across Entity Builders apps).
- *
- * Usage:
- *   import { analytics } from '../lib/analytics';
- *   analytics.track('engine_run', { activities: 5 });
- *   analytics.captureError(error, { screen: 'HomeScreen' });
- */
-export const posthogProvider = new PostHogProvider();
-export const analytics = new Analytics(posthogProvider);
+export const posthogRNProvider = new PostHogRNProvider();
+export const analytics = new Analytics(posthogRNProvider);
 
-/** Returns the raw PostHog client — for PostHogProvider wrapper if needed */
-export const getPostHogClient = () => undefined;
+export const getPostHogClient = () => posthogRNProvider.getClient();
 
 export function initAnalytics(): void {
   const posthogKey =
@@ -29,12 +21,11 @@ export function initAnalytics(): void {
 
   analytics.setGlobalProperties({
     app: 'zigzag',
-    platform: 'web',
+    platform: Platform.OS,
     environment: posthogKey ? 'production' : 'development',
   });
 }
 
-// ─── ZigZag-specific event helpers ─────────────────────────────
 export const trackActivityGenerated = (count: number) =>
   analytics.track('activity_generated', { count });
 

@@ -22,14 +22,14 @@ export default function TabLayout() {
       <Tabs.Screen
         name='index'
         options={{
-          title: 'Para Vos',
+          title: 'Plan',
           tabBarIcon: ({ focused }) => <TabIcon emoji='⚡' focused={focused} />,
         }}
       />
       <Tabs.Screen
         name='my-tours'
         options={{
-          title: 'Tours',
+          title: 'Rutas',
           tabBarIcon: ({ focused }) => <TabIcon emoji='🗺️' focused={focused} />,
         }}
       />

@@ -2,6 +2,7 @@ import { supabase } from '@eb-packages/logic';
 
 export interface Tour {
   id: string;
+  userId?: string | null;
   name: string;
   description?: string;
   coverImage?: string;
@@ -31,6 +32,13 @@ export interface Tour {
     activityData?: {
       description?: string;
       duration?: number;
+      confidence?: string;
+      source?: string;
+      whyThisStop?: string;
+      openingHours?: string;
+      reservationStatus?: string;
+      priceRange?: string;
+      freshness?: string;
     };
     duration?: number;
 
@@ -85,6 +93,33 @@ export interface GenerateTourDto {
     | 'random';
 }
 
+async function buildFunctionError(error: unknown): Promise<Error> {
+  const context = (error as { context?: Response })?.context;
+  let details: string | undefined;
+
+  if (context) {
+    try {
+      const body = await context.clone().json();
+      details = body?.error || body?.message || JSON.stringify(body);
+    } catch {
+      try {
+        details = await context.clone().text();
+      } catch {
+        details = `${context.status} ${context.statusText}`;
+      }
+    }
+  }
+
+  const message =
+    details && details !== '{}'
+      ? details
+      : error instanceof Error
+        ? error.message
+        : 'No se pudo generar el itinerario';
+
+  return new Error(message);
+}
+
 export async function fetchNearbyTours(
   lat: number,
   lng: number,
@@ -129,6 +164,17 @@ export async function fetchTourById(id: string) {
   return data;
 }
 
+export async function updateTourMetadata(id: string, metadata: any) {
+  const { data, error } = await supabase
+    .from('tour')
+    .update({ metadata, updatedAt: new Date().toISOString() })
+    .eq('id', id)
+    .select('metadata')
+    .single();
+  if (error) throw error;
+  return data?.metadata;
+}
+
 export async function generateTour(dataOrPrompt: string | GenerateTourDto) {
   const payload =
     typeof dataOrPrompt === 'string' ? { prompt: dataOrPrompt } : dataOrPrompt;
@@ -140,6 +186,7 @@ export async function generateTour(dataOrPrompt: string | GenerateTourDto) {
     },
   );
 
-  if (error) throw error;
+  if (error) throw await buildFunctionError(error);
+  if (data?.error) throw new Error(data.error);
   return data;
 }

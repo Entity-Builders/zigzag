@@ -13,12 +13,42 @@ import { useRouter } from 'expo-router';
 import { useAuth } from '../../contexts/AuthProvider';
 import { colors, typography, spacing, radii } from '../../constants/theme';
 import { fetchMyTours, fetchPublicTours, type Tour } from '../../api/tours';
+import {
+  trackCityDayReopened,
+  trackPremiumInterestClicked,
+} from '../../lib/analytics';
+import {
+  getCityDayIntent,
+  getDayLength,
+  getEffortLevel,
+} from '../../constants/cityDay';
 
-function TourCard({ tour }: { tour: Tour }) {
+function TourCard({ tour, onPress }: { tour: Tour; onPress: () => void }) {
   const activityCount = tour.activities?.length ?? 0;
+  const input = tour.metadata?.input || {};
+  const decisionBrief = tour.metadata?.decisionBrief || input.decisionBrief || {};
+  const optimizationIntent = getCityDayIntent(
+    decisionBrief.optimizationIntent || input.optimizationIntent,
+  );
+  const dayLength = getDayLength(decisionBrief.dayLength);
+  const effort = getEffortLevel(decisionBrief.effortLevel);
+  const startContext =
+    decisionBrief.startContext || input.destination || 'inicio por confirmar';
+  const adjustmentCount = Array.isArray(
+    tour.metadata?.cityDayAdjustments?.actions,
+  )
+    ? tour.metadata.cityDayAdjustments.actions.length
+    : 0;
+  const planState = adjustmentCount > 0 ? 'Plan ajustado' : 'Plan original';
+  const contextItems = [
+    `Optimiza: ${optimizationIntent.label}`,
+    `Inicio: ${startContext}`,
+    `Tiempo: ${dayLength.label}`,
+    `Esfuerzo: ${effort.label}`,
+  ];
 
   return (
-    <TouchableOpacity style={styles.card} activeOpacity={0.7}>
+    <TouchableOpacity style={styles.card} onPress={onPress} activeOpacity={0.7}>
       <View style={styles.cardHeader}>
         <Text style={styles.cardName} numberOfLines={2}>
           {tour.name}
@@ -34,11 +64,30 @@ function TourCard({ tour }: { tour: Tour }) {
         )}
       </View>
 
+      <View style={styles.planStateRow}>
+        <Text style={styles.planState}>{planState}</Text>
+        {adjustmentCount > 0 && (
+          <Text style={styles.planStateMuted}>
+            {adjustmentCount} ajuste{adjustmentCount === 1 ? '' : 's'}
+          </Text>
+        )}
+      </View>
+
       {tour.description && (
         <Text style={styles.cardDescription} numberOfLines={2}>
           {tour.description}
         </Text>
       )}
+
+      <View style={styles.contextList}>
+        {contextItems.map((item) => (
+          <View key={item} style={styles.contextPill}>
+            <Text style={styles.contextPillText} numberOfLines={1}>
+              {item}
+            </Text>
+          </View>
+        ))}
+      </View>
 
       <View style={styles.cardStats}>
         {activityCount > 0 && (
@@ -74,6 +123,25 @@ function TourCard({ tour }: { tour: Tour }) {
       </View>
     </TouchableOpacity>
   );
+}
+
+function getPlanAnalytics(tour: Tour) {
+  const input = tour.metadata?.input || {};
+  const decisionBrief = tour.metadata?.decisionBrief || input.decisionBrief || {};
+  const adjustmentCount = Array.isArray(
+    tour.metadata?.cityDayAdjustments?.actions,
+  )
+    ? tour.metadata.cityDayAdjustments.actions.length
+    : 0;
+
+  return {
+    optimization_intent:
+      decisionBrief.optimizationIntent || input.optimizationIntent || 'must_see',
+    day_length: decisionBrief.dayLength || input.dayLength || 'half_day',
+    effort_level: decisionBrief.effortLevel || input.effortLevel || 'moderate',
+    adjustment_count: adjustmentCount,
+    saved_plan_state: adjustmentCount > 0 ? 'adjusted' : 'original',
+  };
 }
 
 export default function MyToursScreen() {
@@ -117,7 +185,20 @@ export default function MyToursScreen() {
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.title}>Tours</Text>
+        <Text style={styles.title}>Mis planes</Text>
+        <Text style={styles.subtitle}>
+          Guardá City Days que resolvieron una decisión real: contexto,
+          ajustes, versiones futuras y reutilización viven acá.
+        </Text>
+        <TouchableOpacity
+          style={styles.premiumInterestButton}
+          onPress={() => trackPremiumInterestClicked('my_tours_header')}
+          activeOpacity={0.75}
+        >
+          <Text style={styles.premiumInterestText}>
+            Me interesa comparar variantes
+          </Text>
+        </TouchableOpacity>
       </View>
 
       {/* Tabs */}
@@ -129,7 +210,7 @@ export default function MyToursScreen() {
           <Text
             style={[styles.tabText, tab === 'mine' && styles.tabTextActive]}
           >
-            Mis Tours ({myTours.length})
+            Mis planes ({myTours.length})
           </Text>
         </TouchableOpacity>
         <TouchableOpacity
@@ -152,12 +233,12 @@ export default function MyToursScreen() {
         <View style={styles.centered}>
           <Text style={styles.emptyIcon}>{tab === 'mine' ? '⚡' : '🌍'}</Text>
           <Text style={styles.emptyTitle}>
-            {tab === 'mine' ? 'Sin tours todavía' : 'Sin tours públicos'}
+            {tab === 'mine' ? 'Sin planes todavía' : 'Sin planes públicos'}
           </Text>
           <Text style={styles.emptyText}>
             {tab === 'mine'
-              ? 'Generá tu primer tour con IA'
-              : 'Los tours generados aparecerán acá'}
+              ? 'Generá un City Day, ajustalo si hace falta y guardá el plan que realmente te simplifica el día.'
+              : 'Los planes públicos aparecerán acá cuando existan rutas compartibles.'}
           </Text>
           {tab === 'mine' && (
             <TouchableOpacity
@@ -165,7 +246,7 @@ export default function MyToursScreen() {
               onPress={() => router.push('/generate')}
               activeOpacity={0.8}
             >
-              <Text style={styles.generateCtaText}>⚡ Generar Tour</Text>
+              <Text style={styles.generateCtaText}>Plan A City Day</Text>
             </TouchableOpacity>
           )}
         </View>
@@ -173,7 +254,18 @@ export default function MyToursScreen() {
         <FlatList
           data={activeTours}
           keyExtractor={(item) => item.id}
-          renderItem={({ item }) => <TourCard tour={item} />}
+          renderItem={({ item }) => (
+            <TourCard
+              tour={item}
+              onPress={() => {
+                trackCityDayReopened(item.id, {
+                  source: tab === 'mine' ? 'my_tours' : 'public_tours',
+                  ...getPlanAnalytics(item),
+                });
+                router.push(`/tour/${item.id}`);
+              }}
+            />
+          )}
           contentContainerStyle={styles.list}
           showsVerticalScrollIndicator={false}
           refreshControl={
@@ -192,7 +284,7 @@ export default function MyToursScreen() {
         onPress={() => router.push('/generate')}
         activeOpacity={0.85}
       >
-        <Text style={styles.fabText}>⚡ Generar Tour</Text>
+        <Text style={styles.fabText}>Plan A City Day</Text>
       </TouchableOpacity>
     </SafeAreaView>
   );
@@ -210,6 +302,26 @@ const styles = StyleSheet.create({
   },
   title: {
     ...typography.largeTitle,
+  },
+  subtitle: {
+    ...typography.caption,
+    lineHeight: 18,
+    marginTop: spacing.xs,
+  },
+  premiumInterestButton: {
+    alignSelf: 'flex-start',
+    borderRadius: radii.full,
+    borderWidth: 1,
+    borderColor: colors.primary,
+    backgroundColor: colors.primarySoft,
+    paddingVertical: spacing.xs,
+    paddingHorizontal: spacing.md,
+    marginTop: spacing.sm,
+  },
+  premiumInterestText: {
+    ...typography.caption,
+    color: colors.primary,
+    fontWeight: '800',
   },
   // Tabs
   tabs: {
@@ -259,9 +371,44 @@ const styles = StyleSheet.create({
   cardName: {
     ...typography.headline,
   },
+  planStateRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
+  planState: {
+    ...typography.caption,
+    color: colors.primary,
+    fontWeight: '800',
+  },
+  planStateMuted: {
+    ...typography.caption,
+    color: colors.textMuted,
+    fontSize: 11,
+  },
   cardDescription: {
     ...typography.body,
     fontSize: 14,
+  },
+  contextList: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.xs,
+  },
+  contextPill: {
+    maxWidth: '100%',
+    backgroundColor: colors.surfaceElevated,
+    borderWidth: 1,
+    borderColor: colors.borderLight,
+    borderRadius: radii.full,
+    paddingVertical: 4,
+    paddingHorizontal: spacing.sm,
+  },
+  contextPillText: {
+    ...typography.caption,
+    color: colors.textSecondary,
+    fontSize: 11,
+    fontWeight: '700',
   },
   tags: {
     flexDirection: 'row',
