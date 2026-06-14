@@ -5,4 +5,8 @@ const supabaseUrl =
 const supabaseAnonKey =
   process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY || 'dummy_anon_key';
 
-export const supabase = createClient(supabaseUrl, supabaseAnonKey);
+export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+  auth: {
+    storageKey: 'eb:zigzag:supabase-auth',
+  },
+});
