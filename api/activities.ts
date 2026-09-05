@@ -1,4 +1,4 @@
-import { supabase } from '@eb-packages/logic';
+import { supabase } from '@entity-builders/logic';
 
 export async function fetchSimilarActivities(activityId: string, limit = 10) {
   const { data, error } = await supabase.functions.invoke(

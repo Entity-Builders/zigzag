@@ -1,8 +1,8 @@
-import { Analytics, PostHogProvider } from '@eb-packages/analytics';
+import { Analytics, PostHogProvider } from '@entity-builders/analytics';
 
 /**
  * Singleton analytics instance for ZigZag.
- * Uses @eb-packages/analytics (shared across Entity Builders apps).
+ * Uses @entity-builders/analytics (shared across Entity Builders apps).
  *
  * Usage:
  *   import { analytics } from '../lib/analytics';

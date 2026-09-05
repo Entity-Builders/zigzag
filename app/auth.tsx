@@ -10,7 +10,7 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { supabase } from '@eb-packages/logic';
+import { supabase } from '@entity-builders/logic';
 import { colors, typography, spacing, radii } from '../constants/theme';
 import { showAlert } from '../utils/alerts';
 

@@ -1,6 +1,6 @@
 import { Platform } from 'react-native';
-import { Analytics } from '@eb-packages/analytics';
-import { PostHogRNProvider } from '@eb-packages/analytics/src/posthog-rn-provider';
+import { Analytics } from '@entity-builders/analytics';
+import { PostHogRNProvider } from '@entity-builders/analytics/src/posthog-rn-provider';
 
 export const posthogRNProvider = new PostHogRNProvider();
 export const analytics = new Analytics(posthogRNProvider);
