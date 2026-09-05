@@ -21,6 +21,8 @@
   },
   "dependencies": {
     "@entity-builders/analytics": "1.0.0",
+    "@entity-builders/logic": "*",
+    "@entity-builders/zigzag-logic": "*",
     "@react-native-async-storage/async-storage": "2.2.0",
     "@react-native-community/slider": "^5.1.2",
     "@supabase/supabase-js": "^2.98.0",
